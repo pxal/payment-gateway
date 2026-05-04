@@ -1,0 +1,67 @@
+name: Build Android Listener APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Gateway BASE_URL, for example https://payment.example.com"
+        required: true
+        default: "http://localhost:1000"
+      android_secret:
+        description: "ANDROID_SHARED_SECRET used by the gateway"
+        required: true
+        default: "change-this-android-secret"
+  push:
+    paths:
+      - "android-listener/**"
+      - "scripts/sync-android-env.js"
+      - ".github/workflows/build-android-listener.yml"
+
+jobs:
+  build:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: android-listener
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Sync Android defaults from workflow inputs
+        working-directory: .
+        run: |
+          cat > .env <<'EOF'
+          BASE_URL=${{ github.event.inputs.base_url || vars.BASE_URL || 'http://localhost:1000' }}
+          ANDROID_SHARED_SECRET=${{ github.event.inputs.android_secret || secrets.ANDROID_SHARED_SECRET || 'change-this-android-secret' }}
+          EOF
+          npm run android:sync-env
+
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-listener-debug-apk
+          path: android-listener/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
