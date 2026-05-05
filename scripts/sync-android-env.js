@@ -46,7 +46,7 @@ const source = `package com.alvian.gatewaylistener
 object AndroidDefaults {
     const val SERVER_URL = ${kotlinString(baseUrl)}
     const val ANDROID_SECRET = ${kotlinString(androidSecret)}
-    const val ALLOWED_PACKAGES = "id.dana,ovo.id,com.gojek.gopay,com.shopee.id"
+    const val ALLOWED_PACKAGES = "id.dana,ovo.id,com.gojek.gopay,com.shopee.id,com.shopeepay.id"
 }
 `;
 
