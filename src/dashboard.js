@@ -9,9 +9,18 @@ function escapeHtml(value) {
 function formatDate(value) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatWibDateTime(value = new Date()) {
+  return `${new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value))} WIB`;
 }
 
 function statusClass(status) {
@@ -42,7 +51,7 @@ export function renderDashboard(db, options = {}) {
   const androidSharedSecret = options.androidSharedSecret || "ANDROID_SHARED_SECRET";
   const payments = db.payments.slice(0, 100);
   const overviewPayments = db.payments.slice(0, 5);
-  const notifications = db.notifications.slice(0, 30);
+  const notifications = db.notifications;
   const callbacks = db.callbacks.slice(0, 30);
   const paid = db.payments.filter((payment) => payment.status === "paid");
   const pending = db.payments.filter((payment) => payment.status === "pending");
@@ -612,7 +621,6 @@ export function renderDashboard(db, options = {}) {
         </div>
       </div>
       <div>
-        <div class="nav-label">Workspace</div>
         <nav class="nav">
           <a class="active" href="#overview">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
@@ -648,7 +656,7 @@ export function renderDashboard(db, options = {}) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
         <div class="topbar-actions">
-          <div class="time-chip">${escapeHtml(new Date().toLocaleString("id-ID"))}</div>
+          <div class="time-chip">${escapeHtml(formatWibDateTime())}</div>
           <form method="post" action="/logout">
             <button class="button-secondary" type="submit">Logout</button>
           </form>
@@ -790,8 +798,8 @@ export function renderDashboard(db, options = {}) {
                     </tr>
                   </thead>
                   <tbody>
-                    ${notifications.map((item) => `
-                      <tr>
+                    ${notifications.map((item, index) => `
+                      <tr data-android-row data-row-index="${index}">
                         <td><span class="pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
                         <td>${item.parsed_amount ? money(item.parsed_amount) : "-"}</td>
                         <td>${escapeHtml(item.package_name || "-")}</td>
@@ -801,7 +809,12 @@ export function renderDashboard(db, options = {}) {
                       </tr>
                     `).join("")}
                   </tbody>
-                </table>` : `<div class="empty">Belum ada notifikasi Android.</div>`}
+                </table>
+                <div class="pagination" data-android-pagination>
+                  <button type="button" data-android-prev>Previous</button>
+                  <span data-android-page>Page 1 / 1</span>
+                  <button type="button" data-android-next>Next</button>
+                </div>` : `<div class="empty">Belum ada notifikasi Android.</div>`}
               </div>
             </section>
 
@@ -1106,6 +1119,38 @@ Content-Type: application/json
       renderPaymentPage();
     });
     renderPaymentPage();
+
+    const androidRows = Array.from(document.querySelectorAll("[data-android-row]"));
+    const androidPrev = document.querySelector("[data-android-prev]");
+    const androidNext = document.querySelector("[data-android-next]");
+    const androidPage = document.querySelector("[data-android-page]");
+    let currentAndroidPage = 1;
+
+    function renderAndroidPage() {
+      if (!androidRows.length) return;
+      const totalPages = Math.max(1, Math.ceil(androidRows.length / rowsPerPage));
+      currentAndroidPage = Math.min(Math.max(currentAndroidPage, 1), totalPages);
+      const start = (currentAndroidPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+
+      androidRows.forEach((row, index) => {
+        row.hidden = index < start || index >= end;
+      });
+
+      androidPage.textContent = "Page " + currentAndroidPage + " / " + totalPages;
+      androidPrev.disabled = currentAndroidPage <= 1;
+      androidNext.disabled = currentAndroidPage >= totalPages;
+    }
+
+    androidPrev?.addEventListener("click", () => {
+      currentAndroidPage -= 1;
+      renderAndroidPage();
+    });
+    androidNext?.addEventListener("click", () => {
+      currentAndroidPage += 1;
+      renderAndroidPage();
+    });
+    renderAndroidPage();
 
     const stores = ${JSON.stringify(stores.map((store) => ({
       id: store.id,
