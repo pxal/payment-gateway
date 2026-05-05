@@ -2,6 +2,12 @@ import { config } from "../config.js";
 import { updateDb } from "../storage.js";
 import { hmacSha256, randomId } from "../utils/security.js";
 
+function callbackHttpError(response, responseText) {
+  if (response.ok) return null;
+  const body = responseText.trim().slice(0, 300);
+  return body ? `HTTP ${response.status}: ${body}` : `HTTP ${response.status}: ${response.statusText}`;
+}
+
 export async function sendPaymentCallback(payment, store) {
   if (!payment.callback_url) {
     return { skipped: true, reason: "No callback_url" };
@@ -34,6 +40,7 @@ export async function sendPaymentCallback(payment, store) {
     });
 
     const responseText = await response.text();
+    const errorText = callbackHttpError(response, responseText);
     log = {
       id: randomId("cb"),
       payment_id: payment.id,
@@ -41,7 +48,7 @@ export async function sendPaymentCallback(payment, store) {
       status_code: response.status,
       success: response.ok,
       response_body: responseText.slice(0, 1000),
-      error: null,
+      error: errorText,
       created_at: startedAt,
     };
   } catch (error) {
