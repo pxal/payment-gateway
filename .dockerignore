@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+npm-debug.log
+.env
+data/*.json
+!data/.gitkeep
+android-listener
+Dockerfile
+docker-compose.yml

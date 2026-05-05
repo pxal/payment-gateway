@@ -1,0 +1,15 @@
+{
+  "name": "private-qris-gateway",
+  "version": "0.1.0",
+  "description": "Private QRIS payment gateway with API keys, dynamic QRIS, Android notification validation, and store callbacks.",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "seed": "node src/seed.js",
+    "android:sync-env": "node scripts/sync-android-env.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

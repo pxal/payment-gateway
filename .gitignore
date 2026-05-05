@@ -1,0 +1,8 @@
+node_modules
+.env
+data/*.json
+!data/.gitkeep
+android-listener/.gradle
+android-listener/build
+android-listener/app/build
+android-listener/local.properties
