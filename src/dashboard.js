@@ -583,8 +583,9 @@ export function renderDashboard(db, options = {}) {
         position: fixed;
         inset: 0 auto 0 0;
         z-index: 9;
-        width: min(312px, calc(100vw - 56px));
+        width: min(264px, calc(100vw - 88px));
         height: 100vh;
+        padding: 18px 12px;
         transform: translateX(-105%);
         transition: transform .22s ease;
         box-shadow: 20px 0 50px rgba(15, 23, 42, .28);
@@ -600,6 +601,7 @@ export function renderDashboard(db, options = {}) {
       .store-layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
+      .sidebar { width: min(236px, calc(100vw - 72px)); }
       .topbar { align-items: center; flex-direction: row; padding: 16px; }
       main.content { padding: 20px 16px 36px; }
       .metrics { grid-template-columns: 1fr; }
