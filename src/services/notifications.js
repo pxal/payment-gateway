@@ -42,6 +42,15 @@ function normalizeReceivedAt(input) {
   return Number.isNaN(parsed) ? new Date().toISOString() : new Date(parsed).toISOString();
 }
 
+function isSameNotification(left, right) {
+  return (
+    left.package_name === right.package_name &&
+    left.title === right.title &&
+    left.text === right.text &&
+    left.big_text === right.big_text
+  );
+}
+
 export async function recordAndroidNotification(input) {
   expireOldPayments();
 
@@ -65,8 +74,25 @@ export async function recordAndroidNotification(input) {
   };
 
   let matchedPayment = null;
+  let duplicateNotification = null;
 
   updateDb((db) => {
+    duplicateNotification = db.notifications.find((item) => {
+      const createdAt = Date.parse(item.created_at || item.received_at || "");
+      return (
+        isSameNotification(item, notification) &&
+        Number.isFinite(createdAt) &&
+        Date.now() - createdAt < 5 * 60 * 1000
+      );
+    });
+
+    if (duplicateNotification) {
+      notification.id = duplicateNotification.id;
+      notification.status = "duplicate";
+      notification.matched_payment_id = duplicateNotification.matched_payment_id || null;
+      return;
+    }
+
     if (notification.parsed_amount) {
       matchedPayment = db.payments
         .filter(
@@ -87,9 +113,9 @@ export async function recordAndroidNotification(input) {
   });
 
   let paidPayment = null;
-  if (matchedPayment) {
+  if (matchedPayment && !duplicateNotification) {
     paidPayment = await markPaymentPaid(matchedPayment.id, notification.id);
   }
 
-  return { notification, payment: paidPayment };
+  return { notification, payment: paidPayment, duplicate: Boolean(duplicateNotification) };
 }

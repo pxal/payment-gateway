@@ -254,6 +254,7 @@ async function handleAndroidNotification(req, res) {
     status: result.notification.status,
     matched_payment_id: result.notification.matched_payment_id,
     payment_status: result.payment?.status || null,
+    duplicate: Boolean(result.duplicate),
   });
 
   return sendJson(res, 200, {
@@ -262,6 +263,7 @@ async function handleAndroidNotification(req, res) {
     status: result.notification.status,
     matched_payment_id: result.notification.matched_payment_id,
     payment_status: result.payment?.status || null,
+    duplicate: Boolean(result.duplicate),
   });
 }
 

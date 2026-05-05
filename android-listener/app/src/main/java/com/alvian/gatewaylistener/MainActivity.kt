@@ -1,9 +1,11 @@
 package com.alvian.gatewaylistener
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -53,6 +55,15 @@ class MainActivity : Activity() {
 
         root.addView(button("Open Notification Access") {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        })
+
+        root.addView(button("Rebind Listener") {
+            NotificationListenerService.requestRebind(
+                ComponentName(this, PaymentNotificationListener::class.java)
+            )
+            DebugLog.add(this, "manual rebind requested")
+            statusText.text = "Rebind requested."
+            refreshDebugLog()
         })
 
         root.addView(button("Send Test Notification") {

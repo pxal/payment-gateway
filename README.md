@@ -82,13 +82,20 @@ Setelah install APK baru:
 3. Pastikan Allowed Packages berisi:
 
 ```text
-id.dana,ovo.id,com.gojek.gopay,com.shopee.id
+id.dana,ovo.id,com.gojek.gopay,com.shopee.id,com.shopeepay.id
 ```
 
 4. Klik **Save Settings**.
 5. Buka **Open Notification Access**.
 6. Matikan lalu aktifkan ulang akses untuk **Gateway Listener**.
 7. Saat notifikasi pembayaran masuk, buka app dan klik **Refresh Debug Log**.
+
+Catatan untuk MIUI/Xiaomi:
+
+- Aktifkan **Autostart** untuk **Gateway Listener**.
+- Set Battery Saver aplikasi ke **No restrictions**.
+- Jangan force close aplikasi dari Settings.
+- Jika debug log menampilkan `listener destroyed`, buka app lalu klik **Rebind Listener**.
 
 Seed membuat store demo dengan API key:
 
@@ -154,7 +161,7 @@ Endpoint juga menerima alias `POST /api/android/notification` dan nama field And
 Package pembayaran yang umum dipakai:
 
 ```text
-id.dana,ovo.id,com.gojek.gopay,com.shopee.id
+id.dana,ovo.id,com.gojek.gopay,com.shopee.id,com.shopeepay.id
 ```
 
 Jika tombol test dari aplikasi Android masuk ke dashboard tetapi notifikasi pembayaran asli tidak masuk,
