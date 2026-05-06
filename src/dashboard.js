@@ -1503,28 +1503,6 @@ export function renderDashboard(db, options = {}) {
       50% { transform: translate(30px, 20px); }
     }
     .hero-content { display: grid; gap: 14px; align-content: start; min-width: 0; }
-    .hero-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      width: max-content;
-      border-radius: 99px;
-      background: color-mix(in oklab, var(--primary) 10%, var(--surface));
-      border: 1px solid color-mix(in oklab, var(--primary) 22%, var(--line));
-      color: var(--primary);
-      font-size: 11.5px;
-      font-weight: 600;
-      letter-spacing: .02em;
-    }
-    .hero-pulse {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #22c55e;
-      box-shadow: 0 0 0 4px rgba(34,197,94,.20);
-      animation: pulse 2.4s ease-in-out infinite;
-    }
     .hero-title {
       margin: 0;
       font-size: 14px;
@@ -2171,10 +2149,6 @@ export function renderDashboard(db, options = {}) {
             <div class="hero-blob hero-blob-a"></div>
             <div class="hero-blob hero-blob-b"></div>
             <div class="hero-content">
-              <div class="hero-eyebrow">
-                <span class="hero-pulse"></span>
-                <span>Live ops &middot; ${stores.length} store aktif</span>
-              </div>
               <h2 class="hero-title">Revenue hari ini</h2>
               <div class="hero-amount">
                 <strong>${money(todayRevenue)}</strong>
