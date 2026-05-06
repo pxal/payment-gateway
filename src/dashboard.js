@@ -80,6 +80,202 @@ function callbackCell(payment) {
   return `<div class="callback-cell">${pill}${retryButton}</div>`;
 }
 
+function dayKey(date) {
+  const d = new Date(date);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function buildRevenueSeries(payments, days = 14) {
+  const buckets = new Map();
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setUTCDate(now.getUTCDate() - i);
+    buckets.set(dayKey(d), 0);
+  }
+  payments.forEach((p) => {
+    if (p.status !== "paid") return;
+    const ref = p.paid_at || p.created_at;
+    if (!ref) return;
+    const key = dayKey(ref);
+    if (buckets.has(key)) buckets.set(key, buckets.get(key) + Number(p.amount || 0));
+  });
+  return Array.from(buckets.entries()).map(([key, value]) => ({ key, value }));
+}
+
+function buildPaymentsCountSeries(payments, days = 14) {
+  const buckets = new Map();
+  const now = new Date();
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setUTCDate(now.getUTCDate() - i);
+    buckets.set(dayKey(d), 0);
+  }
+  payments.forEach((p) => {
+    const ref = p.created_at;
+    if (!ref) return;
+    const key = dayKey(ref);
+    if (buckets.has(key)) buckets.set(key, buckets.get(key) + 1);
+  });
+  return Array.from(buckets.entries()).map(([key, value]) => ({ key, value }));
+}
+
+function trendPercent(series) {
+  if (!series || series.length < 2) return 0;
+  const half = Math.floor(series.length / 2);
+  const prev = series.slice(0, half).reduce((a, b) => a + b.value, 0);
+  const curr = series.slice(half).reduce((a, b) => a + b.value, 0);
+  if (prev === 0 && curr === 0) return 0;
+  if (prev === 0) return 100;
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
+function sparklineSvg(series, opts = {}) {
+  const w = opts.width || 220;
+  const h = opts.height || 56;
+  const pad = 4;
+  const values = series.map((p) => p.value);
+  const max = Math.max(1, ...values);
+  const stepX = (w - pad * 2) / Math.max(1, series.length - 1);
+  const points = series.map((p, i) => {
+    const x = pad + i * stepX;
+    const y = h - pad - (p.value / max) * (h - pad * 2);
+    return [x, y];
+  });
+  const path = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const area = `${path} L${points[points.length - 1][0].toFixed(1)},${h - pad} L${points[0][0].toFixed(1)},${h - pad} Z`;
+  const last = points[points.length - 1] || [pad, h - pad];
+  const id = `sg${Math.random().toString(36).slice(2, 8)}`;
+  return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}-fill" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0%" stop-color="currentColor" stop-opacity="0.32"/>
+        <stop offset="100%" stop-color="currentColor" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="${area}" fill="url(#${id}-fill)" stroke="none"/>
+    <path d="${path}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" fill="currentColor"/>
+  </svg>`;
+}
+
+function donutSvg(percent, opts = {}) {
+  const size = opts.size || 132;
+  const stroke = opts.stroke || 12;
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circ = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, percent));
+  const offset = circ * (1 - clamped / 100);
+  const id = `dn${Math.random().toString(36).slice(2, 8)}`;
+  return `<svg class="donut" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="${id}-grad" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0%" stop-color="#6366f1"/>
+        <stop offset="50%" stop-color="#8b5cf6"/>
+        <stop offset="100%" stop-color="#06b6d4"/>
+      </linearGradient>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="currentColor" stroke-width="${stroke}" opacity="0.10"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#${id}-grad)" stroke-width="${stroke}"
+      stroke-linecap="round"
+      stroke-dasharray="${circ.toFixed(1)}"
+      stroke-dashoffset="${offset.toFixed(1)}"
+      transform="rotate(-90 ${cx} ${cy})"/>
+  </svg>`;
+}
+
+function distributionBars(parts) {
+  const total = parts.reduce((a, b) => a + b.value, 0) || 1;
+  return `<div class="distribution-bar">
+    ${parts.map((p) => `<span class="dist-seg ${p.tone}" style="--w:${((p.value / total) * 100).toFixed(2)}%" title="${escapeHtml(p.label)}: ${p.value}"></span>`).join("")}
+  </div>
+  <div class="distribution-legend">
+    ${parts.map((p) => `<span class="dist-key"><i class="dist-dot ${p.tone}"></i>${escapeHtml(p.label)} <strong>${p.value}</strong></span>`).join("")}
+  </div>`;
+}
+
+function buildActivityFeed(payments, notifications, callbacks, limit = 8) {
+  const items = [];
+  payments.slice(0, 30).forEach((p) => {
+    if (p.paid_at) {
+      items.push({
+        type: "paid",
+        time: p.paid_at,
+        title: `Payment ${p.external_id} berhasil`,
+        meta: `${money(p.amount)} \u2022 ${p.customer_name || "Customer"}`,
+        tone: "good",
+        icon: "check",
+      });
+    }
+    if (p.status === "expired") {
+      items.push({
+        type: "expired",
+        time: p.expires_at || p.updated_at || p.created_at,
+        title: `Payment ${p.external_id} expired`,
+        meta: money(p.amount),
+        tone: "muted",
+        icon: "clock",
+      });
+    } else if (p.status === "pending") {
+      items.push({
+        type: "pending",
+        time: p.created_at,
+        title: `Invoice ${p.external_id} dibuat`,
+        meta: `${money(p.amount)} \u2022 menunggu pembayaran`,
+        tone: "warn",
+        icon: "plus",
+      });
+    }
+  });
+  callbacks.slice(0, 20).forEach((c) => {
+    if (c.success) return;
+    items.push({
+      type: "callback-fail",
+      time: c.created_at,
+      title: `Callback gagal ke store`,
+      meta: c.error || `HTTP ${c.status_code || "?"}`,
+      tone: "bad",
+      icon: "alert",
+    });
+  });
+  notifications.slice(0, 20).forEach((n) => {
+    if (n.status === "matched") return;
+    items.push({
+      type: "notif-unmatched",
+      time: n.received_at || n.created_at,
+      title: `Notifikasi tidak cocok`,
+      meta: `${n.source === "whatsapp" ? "WA" : "Android"} \u2022 ${money(n.parsed_amount || 0)}`,
+      tone: "muted",
+      icon: "bell",
+    });
+  });
+  items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  return items.slice(0, limit);
+}
+
+function activityIconSvg(name) {
+  const paths = {
+    check: '<path d="m4 13 4 4L20 5"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    alert: '<path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.41 0Z"/>',
+    bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M10 21h4"/>',
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.check}</svg>`;
+}
+
+function relativeTime(value) {
+  if (!value) return "-";
+  const diff = (Date.now() - new Date(value).getTime()) / 1000;
+  if (diff < 60) return `${Math.max(1, Math.floor(diff))}d`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}j`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}h`;
+  return formatDate(value);
+}
+
 export function renderDashboard(db, options = {}) {
   const baseUrl = options.baseUrl || "http://localhost:1000";
   const androidSharedSecret = options.androidSharedSecret || "ANDROID_SHARED_SECRET";
@@ -99,6 +295,26 @@ export function renderDashboard(db, options = {}) {
   const successRate = db.payments.length
     ? Math.round((paid.length / db.payments.length) * 100)
     : 0;
+  const failed = db.payments.filter((p) => p.status === "failed");
+  const todayKey = dayKey(new Date());
+  const revenueSeries = buildRevenueSeries(db.payments, 14);
+  const paymentsCountSeries = buildPaymentsCountSeries(db.payments, 14);
+  const todayRevenueEntry = revenueSeries.find((e) => e.key === todayKey);
+  const todayRevenue = todayRevenueEntry ? todayRevenueEntry.value : 0;
+  const todayPayments = paymentsCountSeries.find((e) => e.key === todayKey);
+  const revenueTrend = trendPercent(revenueSeries);
+  const paymentsTrend = trendPercent(paymentsCountSeries);
+  const callbackFailedCount = db.payments.filter((p) => p.callback_status === "failed" || p.callback_status === "exhausted").length;
+  const unmatchedNotifs = db.notifications.filter((n) => n.status !== "matched").length;
+  const matchedNotifs = db.notifications.filter((n) => n.status === "matched").length;
+  const activityFeed = buildActivityFeed(db.payments, db.notifications, db.callbacks, 8);
+  const alertCount = (callbackFailedCount > 0 ? 1 : 0) + (unmatchedNotifs > 0 ? 1 : 0) + (pending.length > 0 ? 1 : 0);
+  const distributionParts = [
+    { label: "Paid", value: paid.length, tone: "good" },
+    { label: "Pending", value: pending.length, tone: "warn" },
+    { label: "Expired", value: expired.length, tone: "muted" },
+    { label: "Failed", value: failed.length, tone: "bad" },
+  ];
 
   return `<!doctype html>
 <html lang="id">
@@ -979,6 +1195,889 @@ export function renderDashboard(db, options = {}) {
         transition-duration: .001ms !important;
       }
     }
+
+    /* ===== v2 redesign: topbar + hero + bento + timeline ===== */
+
+    .sidebar { padding-top: 18px; padding-bottom: 14px; }
+    .sidebar-scroll { display: flex; flex-direction: column; gap: 14px; min-height: 0; flex: 1; }
+    .nav-section {
+      padding: 16px 12px 4px;
+      color: var(--nav-text-soft);
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      opacity: .8;
+    }
+    .nav-section:first-child { padding-top: 4px; }
+    .nav a { padding-right: 10px; }
+    .nav-badge {
+      margin-left: auto;
+      min-width: 22px;
+      padding: 0 7px;
+      height: 19px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 99px;
+      background: rgba(255,255,255,.08);
+      color: var(--nav-text);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .nav-badge.alert {
+      background: linear-gradient(135deg, #ef4444, #f97316);
+      color: #fff;
+      box-shadow: 0 0 0 2px rgba(239,68,68,.15);
+    }
+    .sidebar-promo {
+      position: relative;
+      margin: auto 6px 8px;
+      padding: 14px 14px 16px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(99,102,241,.18), rgba(14,165,233,.10));
+      border: 1px solid rgba(255,255,255,.08);
+      color: var(--nav-text);
+      overflow: hidden;
+    }
+    .sidebar-promo-glow {
+      position: absolute;
+      inset: -40% -20% auto auto;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(99,102,241,.45), transparent 60%);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+    .sidebar-promo-eyebrow {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 9px;
+      border-radius: 99px;
+      background: rgba(34,197,94,.18);
+      color: #86efac;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .sidebar-promo strong {
+      position: relative;
+      display: block;
+      margin-top: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+    .sidebar-promo span {
+      position: relative;
+      display: block;
+      margin-top: 4px;
+      color: var(--nav-text-soft);
+      font-size: 11.5px;
+      line-height: 1.5;
+    }
+    .sidebar-foot { display: grid; gap: 4px; }
+    .sidebar-foot-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+    }
+    .sidebar-foot-row.muted { color: var(--nav-text-soft); }
+    .foot-tag {
+      padding: 1px 8px;
+      border-radius: 99px;
+      background: rgba(255,255,255,.08);
+      color: var(--nav-text);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+
+    /* Topbar enhancements */
+    .topbar { padding: 14px 28px; gap: 12px; }
+    .topbar::before { content: none; }
+    .topbar-search {
+      position: relative;
+      flex: 1 1 360px;
+      max-width: 520px;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: color-mix(in oklab, var(--surface) 92%, transparent);
+      transition: border-color .18s var(--ease), box-shadow .18s var(--ease), background .18s var(--ease);
+    }
+    .topbar-search:focus-within {
+      border-color: var(--primary);
+      box-shadow: var(--ring);
+      background: var(--surface);
+    }
+    .topbar-search svg {
+      flex: 0 0 auto;
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+    }
+    .topbar-search input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 13.5px;
+      outline: none;
+    }
+    .topbar-search input::placeholder { color: var(--muted); }
+    .topbar-search kbd {
+      padding: 2px 7px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      color: var(--muted);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .topbar-actions { gap: 10px; }
+    .time-chip { padding: 0 12px; min-height: 42px; gap: 8px; font-size: 12px; }
+    .time-chip::before { content: none; }
+    .time-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--good);
+      box-shadow: 0 0 0 4px var(--good-ring);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    .icon-button { width: 42px; min-height: 42px; }
+    .notif-wrap, .user-wrap { position: relative; }
+    .notif-button { position: relative; }
+    .notif-dot {
+      position: absolute;
+      top: 4px;
+      right: 5px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 99px;
+      background: linear-gradient(135deg, #ef4444, #f97316);
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 700;
+      box-shadow: 0 0 0 2px var(--surface);
+    }
+    .notif-pop, .user-pop {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      min-width: 280px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface-elev);
+      box-shadow: var(--shadow-lg);
+      z-index: 20;
+      animation: popIn .18s var(--ease);
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(-4px) scale(.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .notif-pop[hidden], .user-pop[hidden] { display: none; }
+    .notif-pop-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px 8px;
+    }
+    .notif-pop-head strong { font-size: 13px; }
+    .muted-text { color: var(--muted); font-size: 11.5px; }
+    .notif-pop-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+    .notif-pop-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      transition: background .15s var(--ease);
+    }
+    .notif-pop-item:hover { background: var(--surface-soft); }
+    .notif-pop-item .dot {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      margin-top: 6px;
+      border-radius: 50%;
+    }
+    .notif-pop-item.warn .dot { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-ring); }
+    .notif-pop-item.bad .dot { background: var(--bad); box-shadow: 0 0 0 4px var(--bad-ring); }
+    .notif-pop-item.muted .dot { background: var(--muted); box-shadow: 0 0 0 4px color-mix(in oklab, var(--muted) 18%, transparent); }
+    .notif-pop-item div { display: grid; gap: 2px; min-width: 0; }
+    .notif-pop-item strong { font-size: 12.5px; color: var(--text); font-weight: 600; }
+    .notif-pop-item span { font-size: 11.5px; color: var(--muted); }
+    .notif-pop-empty {
+      padding: 20px 12px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+
+    .user-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 10px 4px 4px;
+      min-height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+      transition: background .15s var(--ease), border-color .15s var(--ease);
+    }
+    .user-pill:hover { background: var(--surface-soft); border-color: color-mix(in oklab, var(--primary) 30%, var(--line)); }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: var(--primary-grad);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+    }
+    .user-avatar.lg { width: 44px; height: 44px; font-size: 17px; border-radius: 12px; }
+    .user-meta { display: grid; line-height: 1.2; text-align: left; }
+    .user-meta strong { font-size: 12.5px; font-weight: 700; }
+    .user-meta span { font-size: 11px; color: var(--muted); }
+    .user-pop-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 12px 14px;
+      border-bottom: 1px solid var(--line-soft);
+      margin-bottom: 6px;
+    }
+    .user-pop-head strong { display: block; font-size: 13.5px; }
+    .user-pop-head span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+    .button-ghost {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s var(--ease);
+    }
+    .button-ghost:hover { background: var(--surface-soft); }
+    .button-ghost svg { width: 16px; height: 16px; }
+
+    /* Hero card */
+    .hero-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 36px;
+      padding: 28px 32px;
+      margin-bottom: 22px;
+      border-radius: var(--radius-xl);
+      background:
+        linear-gradient(135deg, rgba(99,102,241,.08) 0%, rgba(14,165,233,.04) 100%),
+        var(--surface);
+      border: 1px solid var(--line);
+      overflow: hidden;
+      isolation: isolate;
+      animation: fadeUp .4s var(--ease) both;
+      box-shadow: var(--shadow);
+    }
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(600px 320px at 0% 0%, rgba(99,102,241,.18), transparent 60%),
+        radial-gradient(500px 320px at 100% 100%, rgba(14,165,233,.12), transparent 60%);
+      z-index: -1;
+    }
+    .hero-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(48px);
+      opacity: .55;
+      pointer-events: none;
+      z-index: -1;
+    }
+    .hero-blob-a {
+      width: 280px;
+      height: 280px;
+      top: -120px;
+      right: -60px;
+      background: radial-gradient(circle, rgba(139,92,246,.55), transparent 70%);
+      animation: drift 14s ease-in-out infinite;
+    }
+    .hero-blob-b {
+      width: 220px;
+      height: 220px;
+      bottom: -100px;
+      left: 30%;
+      background: radial-gradient(circle, rgba(6,182,212,.45), transparent 70%);
+      animation: drift 18s ease-in-out infinite reverse;
+    }
+    @keyframes drift {
+      0%,100% { transform: translate(0,0); }
+      50% { transform: translate(30px, 20px); }
+    }
+    .hero-content { display: grid; gap: 14px; align-content: start; min-width: 0; }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      width: max-content;
+      border-radius: 99px;
+      background: color-mix(in oklab, var(--primary) 10%, var(--surface));
+      border: 1px solid color-mix(in oklab, var(--primary) 22%, var(--line));
+      color: var(--primary);
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+    .hero-pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34,197,94,.20);
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    .hero-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: .01em;
+    }
+    .hero-amount {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .hero-amount strong {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      background: linear-gradient(180deg, var(--text), color-mix(in oklab, var(--text) 70%, var(--muted)));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .trend-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .01em;
+    }
+    .trend-pill svg { width: 14px; height: 14px; }
+    .trend-pill.sm { padding: 3px 8px; font-size: 11.5px; }
+    .trend-pill.up { background: var(--good-bg); color: var(--good); box-shadow: inset 0 0 0 1px var(--good-ring); }
+    .trend-pill.down { background: var(--bad-bg); color: var(--bad); box-shadow: inset 0 0 0 1px var(--bad-ring); }
+    .hero-meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 4px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line-soft);
+    }
+    .hero-meta-item { display: grid; gap: 4px; min-width: 0; }
+    .hero-meta-label {
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+    .hero-meta-item strong {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      background: var(--primary-grad);
+      background-size: 180% 180%;
+      color: #fff !important;
+      font-weight: 600;
+      font-size: 13px;
+      text-decoration: none;
+      box-shadow: var(--primary-glow);
+      transition: background-position .35s var(--ease), transform .15s var(--ease), box-shadow .25s var(--ease);
+    }
+    .hero-cta:hover { background-position: 100% 0; transform: translateY(-1px); box-shadow: 0 12px 28px -8px rgba(99,102,241,.65); }
+    .hero-cta:active { transform: translateY(0); }
+    .hero-link {
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 13px;
+      text-decoration: none;
+    }
+    .hero-link:hover { text-decoration: underline; }
+    .hero-chart {
+      align-self: end;
+      display: grid;
+      gap: 8px;
+      color: var(--primary);
+      min-width: 0;
+    }
+    .hero-chart-label {
+      color: var(--muted);
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .hero-chart-svg { width: 100%; height: 96px; min-width: 0; }
+    .hero-chart-svg svg { width: 100%; height: 100%; display: block; }
+
+    /* Bento grid */
+    .bento {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .bento-card {
+      position: relative;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease);
+      animation: fadeUp .4s var(--ease) both;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+    .bento-card:nth-child(1) { animation-delay: .04s; }
+    .bento-card:nth-child(2) { animation-delay: .08s; }
+    .bento-card:nth-child(3) { animation-delay: .12s; }
+    .bento-card:nth-child(4) { animation-delay: .16s; }
+    .bento-card:nth-child(5) { animation-delay: .20s; }
+    .bento-card:hover {
+      border-color: color-mix(in oklab, var(--primary) 22%, var(--line));
+      box-shadow: var(--shadow);
+      transform: translateY(-1px);
+    }
+    .bento-card.span-2 { grid-column: span 2; }
+    .bento-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .bento-eyebrow {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .bento-head h3 { margin: 4px 0 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+    .bento-icon {
+      display: grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      color: var(--primary);
+      background: color-mix(in oklab, var(--primary) 12%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 22%, transparent);
+    }
+    .bento-icon svg { width: 18px; height: 18px; }
+    .bento-link {
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .bento-link:hover { text-decoration: underline; }
+    .bento-stat {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .bento-stat strong {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      background: linear-gradient(180deg, var(--text), color-mix(in oklab, var(--text) 70%, var(--muted)));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .bento-spark {
+      width: 100%;
+      height: 48px;
+      min-width: 0;
+      color: var(--primary);
+    }
+    .bento-spark.accent { color: var(--accent); }
+    .bento-spark svg { width: 100%; height: 100%; display: block; }
+
+    /* Distribution bar */
+    .distribution-bar {
+      display: flex;
+      gap: 3px;
+      height: 10px;
+      border-radius: 99px;
+      overflow: hidden;
+      background: var(--surface-soft);
+    }
+    .dist-seg {
+      width: var(--w);
+      transition: width .4s var(--ease);
+    }
+    .dist-seg.good { background: linear-gradient(90deg, #10b981, #34d399); }
+    .dist-seg.warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .dist-seg.bad { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .dist-seg.muted { background: linear-gradient(90deg, #94a3b8, #cbd5e1); }
+    .distribution-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .dist-key { display: inline-flex; align-items: center; gap: 6px; }
+    .dist-key strong { color: var(--text); font-weight: 700; }
+    .dist-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .dist-dot.good { background: #10b981; }
+    .dist-dot.warn { background: #f59e0b; }
+    .dist-dot.bad { background: #ef4444; }
+    .dist-dot.muted { background: #94a3b8; }
+
+    /* Donut */
+    .donut-wrap {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 18px;
+    }
+    .donut-ring { position: relative; width: 132px; height: 132px; color: var(--primary); }
+    .donut-ring svg { width: 100%; height: 100%; display: block; }
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+    .donut-center strong {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      background: var(--primary-grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .donut-center small { font-size: 14px; font-weight: 700; color: var(--primary); }
+    .donut-center span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .donut-legend {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+      font-size: 12.5px;
+      color: var(--text-soft);
+    }
+    .donut-legend li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .donut-legend strong { margin-left: auto; color: var(--text); font-weight: 700; }
+    .donut-legend .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .donut-legend .dot.good { background: var(--good); }
+    .donut-legend .dot.warn { background: var(--warn); }
+    .donut-legend .dot.muted { background: var(--muted); }
+    .donut-legend .dot.bad { background: var(--bad); }
+
+    /* Status list */
+    .status-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+    .status-list li {
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--surface-soft);
+      border: 1px solid var(--line-soft);
+    }
+    .status-icon {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--text-soft);
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+    .status-icon svg { width: 18px; height: 18px; }
+    .status-list li > div { display: grid; gap: 2px; min-width: 0; }
+    .status-list strong { font-size: 12.5px; font-weight: 700; }
+    .status-list span { font-size: 11.5px; color: var(--muted); }
+
+    /* Quick actions */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .quick-action {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform .15s var(--ease), background .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease);
+    }
+    .quick-action:hover {
+      background: var(--surface);
+      border-color: color-mix(in oklab, var(--primary) 30%, var(--line));
+      color: var(--primary);
+      transform: translateY(-1px);
+    }
+    .quick-action-icon {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: var(--primary);
+      background: color-mix(in oklab, var(--primary) 12%, transparent);
+    }
+    .quick-action-icon svg { width: 16px; height: 16px; }
+
+    /* Activity timeline */
+    .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; position: relative; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 17px;
+      top: 14px;
+      bottom: 14px;
+      width: 2px;
+      background: linear-gradient(180deg, var(--line), transparent);
+    }
+    .timeline-item {
+      position: relative;
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 6px;
+      border-radius: 10px;
+      animation: fadeUp .4s var(--ease) both;
+      animation-delay: calc(var(--i, 0) * 40ms);
+    }
+    .timeline-item:hover { background: var(--surface-soft); }
+    .timeline-dot {
+      position: relative;
+      z-index: 1;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      box-shadow: 0 0 0 2px var(--line);
+      background: var(--surface-soft);
+      color: var(--text-soft);
+    }
+    .timeline-dot svg { width: 16px; height: 16px; }
+    .timeline-item.good .timeline-dot { color: var(--good); background: var(--good-bg); box-shadow: 0 0 0 2px var(--good-ring); }
+    .timeline-item.warn .timeline-dot { color: var(--warn); background: var(--warn-bg); box-shadow: 0 0 0 2px var(--warn-ring); }
+    .timeline-item.bad .timeline-dot { color: var(--bad); background: var(--bad-bg); box-shadow: 0 0 0 2px var(--bad-ring); }
+    .timeline-body { display: grid; gap: 2px; min-width: 0; }
+    .timeline-body strong { font-size: 13px; font-weight: 600; color: var(--text); }
+    .timeline-body span { font-size: 11.5px; color: var(--muted); }
+    .timeline-time { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+    /* Empty state */
+    .empty-state {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      padding: 36px 20px;
+      text-align: center;
+    }
+    .empty-illust {
+      width: 72px;
+      height: 72px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: color-mix(in oklab, var(--primary) 8%, var(--surface-soft));
+      color: var(--primary);
+      box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--primary) 18%, transparent);
+    }
+    .empty-illust svg { width: 36px; height: 36px; }
+    .empty-state strong { font-size: 14px; font-weight: 700; }
+    .empty-state span { color: var(--muted); font-size: 12.5px; max-width: 320px; line-height: 1.5; }
+
+    /* Recent panel header */
+    .recent-panel { padding: 0; }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .panel-eyebrow {
+      display: block;
+      color: var(--muted);
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+    .panel-head h3 { margin: 4px 0 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+
+    /* Customer avatar in payment cell */
+    .primary-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .primary-cell > div { display: grid; gap: 2px; min-width: 0; }
+    .customer-avatar {
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: linear-gradient(135deg, color-mix(in oklab, var(--primary) 25%, var(--surface)), color-mix(in oklab, var(--accent) 22%, var(--surface)));
+      color: var(--text);
+      font-weight: 700;
+      font-size: 12.5px;
+      box-shadow: inset 0 0 0 1px var(--line);
+    }
+    .recent-panel tbody tr,
+    [data-payment-row] {
+      animation: fadeUp .35s var(--ease) both;
+      animation-delay: calc(var(--i, 0) * 30ms);
+    }
+
+    /* Override old metric grid */
+    .metrics { display: none; }
+
+    /* Hide heading on overview (hero serves as heading) */
+    body[data-tab="overview"] .page-heading { display: none; }
+    .page-heading { animation: fadeUp .35s var(--ease) both; }
+
+    /* ===== Responsive overrides for v2 ===== */
+    @media (max-width: 1280px) {
+      .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .bento-card.span-2 { grid-column: span 2; }
+      .hero-card { padding: 24px; }
+    }
+    @media (max-width: 1100px) {
+      .topbar-search { display: none; }
+      .hero-card { grid-template-columns: 1fr; padding: 22px; gap: 22px; }
+      .hero-amount strong { font-size: 36px; }
+      .user-meta { display: none; }
+      .user-pill { padding: 4px; }
+    }
+    @media (max-width: 720px) {
+      .topbar { padding: 12px 14px; }
+      .icon-button { width: 38px; min-height: 38px; }
+      .time-chip { display: none; }
+      .topbar-actions { gap: 6px; }
+      .hero-card { padding: 20px; gap: 18px; }
+      .hero-amount strong { font-size: 30px; }
+      .hero-meta { grid-template-columns: 1fr 1fr; }
+      .bento { grid-template-columns: 1fr; gap: 12px; }
+      .bento-card.span-2 { grid-column: span 1; }
+      .donut-wrap { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+      .donut-legend { justify-content: center; }
+      .quick-actions { grid-template-columns: 1fr 1fr; }
+    }
   </style>
   <script>
     (function () {
@@ -1001,16 +2100,19 @@ export function renderDashboard(db, options = {}) {
           <span>Private payment ops</span>
         </div>
       </div>
-      <div>
+      <div class="sidebar-scroll">
         <nav class="nav">
+          <div class="nav-section">Overview</div>
           <a class="active" href="#overview">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-            Overview
+            Dashboard
           </a>
           <a href="#payments">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
             Daftar Transaksi
+            <span class="nav-badge">${db.payments.length}</span>
           </a>
+          <div class="nav-section">Integrasi</div>
           <a href="#koneksi">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.1 0l2.8-2.8a5 5 0 0 0-7.1-7.1L11 4.9"/><path d="M14 11a5 5 0 0 0-7.1 0l-2.8 2.8a5 5 0 0 0 7.1 7.1L13 19.1"/></svg>
             Koneksi
@@ -1023,19 +2125,33 @@ export function renderDashboard(db, options = {}) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-5.4A8.5 8.5 0 1 1 21 11.5Z"/><path d="M9 9.5c.2 3 2.2 5 5.2 5.5l1.3-1.3-2-.9-.8.8c-1-.5-1.8-1.3-2.3-2.3l.8-.8-.9-2L9 9.5Z"/></svg>
             Logs WA
           </a>
+          <div class="nav-section">Operasi</div>
           <a href="#callbacks">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
             Webhooks
+            ${callbackFailedCount ? `<span class="nav-badge alert">${callbackFailedCount}</span>` : ""}
           </a>
           <a href="#konfigurasi">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.3.25.66.4 1.1.4H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51.6Z"/></svg>
             Konfigurasi
           </a>
         </nav>
+        <div class="sidebar-promo">
+          <div class="sidebar-promo-glow"></div>
+          <div class="sidebar-promo-eyebrow">
+            <span class="hero-pulse"></span>
+            System healthy
+          </div>
+          <strong>${successRate}% success rate</strong>
+          <span>${paid.length} dari ${db.payments.length} payment dikonfirmasi.</span>
+        </div>
       </div>
       <div class="sidebar-foot">
-        <div>QRIS Gateway &middot; v1.0</div>
-        <div style="margin-top:4px">Private payment ops</div>
+        <div class="sidebar-foot-row">
+          <span class="foot-tag">v1.0</span>
+          <span>QRIS Gateway</span>
+        </div>
+        <div class="sidebar-foot-row muted">Private payment ops</div>
       </div>
     </aside>
 
@@ -1044,15 +2160,63 @@ export function renderDashboard(db, options = {}) {
         <button class="mobile-menu-button" type="button" data-sidebar-toggle aria-label="Open menu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
+        <div class="topbar-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" placeholder="Cari payment, customer, atau order id\u2026" data-global-search aria-label="Search">
+          <kbd>/</kbd>
+        </div>
         <div class="topbar-actions">
-          <div class="time-chip">${escapeHtml(formatWibDateTime())}</div>
+          <div class="time-chip">
+            <span class="time-dot"></span>
+            ${escapeHtml(formatWibDateTime())}
+          </div>
           <button class="icon-button" type="button" data-theme-toggle aria-label="Toggle theme">
             <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
             <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           </button>
-          <form method="post" action="/logout">
-            <button class="button-secondary" type="submit">Logout</button>
-          </form>
+          <div class="notif-wrap" data-notif-wrap>
+            <button class="icon-button notif-button" type="button" data-notif-toggle aria-label="Notifications">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M10 21h4"/></svg>
+              ${alertCount ? `<span class="notif-dot">${alertCount}</span>` : ""}
+            </button>
+            <div class="notif-pop" data-notif-pop hidden>
+              <div class="notif-pop-head">
+                <strong>Notifications</strong>
+                <span class="muted-text">${alertCount} active</span>
+              </div>
+              <ul class="notif-pop-list">
+                ${pending.length ? `<li class="notif-pop-item warn"><span class="dot"></span><div><strong>${pending.length} pending</strong><span>Menunggu pembayaran customer</span></div></li>` : ""}
+                ${callbackFailedCount ? `<li class="notif-pop-item bad"><span class="dot"></span><div><strong>${callbackFailedCount} callback gagal</strong><span>Webhook ke store butuh perhatian</span></div></li>` : ""}
+                ${unmatchedNotifs ? `<li class="notif-pop-item muted"><span class="dot"></span><div><strong>${unmatchedNotifs} notif tidak cocok</strong><span>Nominal tidak match payment aktif</span></div></li>` : ""}
+                ${!alertCount ? `<li class="notif-pop-empty">Semua aman \u2728</li>` : ""}
+              </ul>
+            </div>
+          </div>
+          <div class="user-wrap" data-user-wrap>
+            <button class="user-pill" type="button" data-user-toggle>
+              <span class="user-avatar">A</span>
+              <span class="user-meta">
+                <strong>Alvian</strong>
+                <span>Admin</span>
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="user-pop" data-user-pop hidden>
+              <div class="user-pop-head">
+                <span class="user-avatar lg">A</span>
+                <div>
+                  <strong>Alvian</strong>
+                  <span>${escapeHtml(firstStore.name || "Admin")}</span>
+                </div>
+              </div>
+              <form method="post" action="/logout">
+                <button class="button-ghost" type="submit">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+                  Logout
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -1062,42 +2226,195 @@ export function renderDashboard(db, options = {}) {
           <p id="page-subtitle">Monitor transaksi QRIS, notifikasi Android, dan callback store.</p>
         </div>
         <section id="overview" class="section-anchor">
-          <div class="metrics">
-            <div class="metric">
-              <div class="metric-head">
-                <span>Total Payment</span>
-                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
+          <div class="hero-card">
+            <div class="hero-blob hero-blob-a"></div>
+            <div class="hero-blob hero-blob-b"></div>
+            <div class="hero-content">
+              <div class="hero-eyebrow">
+                <span class="hero-pulse"></span>
+                <span>Live ops &middot; ${stores.length} store aktif</span>
               </div>
-              <strong>${db.payments.length}</strong>
-              <small>${pending.length} pending, ${expired.length} expired</small>
+              <h2 class="hero-title">Revenue hari ini</h2>
+              <div class="hero-amount">
+                <strong>${money(todayRevenue)}</strong>
+                <span class="trend-pill ${revenueTrend >= 0 ? "up" : "down"}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${revenueTrend >= 0 ? '<path d="M7 17 17 7"/><path d="M9 7h8v8"/>' : '<path d="M7 7l10 10"/><path d="M17 9v8H9"/>'}</svg>
+                  ${Math.abs(revenueTrend)}%
+                </span>
+              </div>
+              <div class="hero-meta">
+                <div class="hero-meta-item">
+                  <span class="hero-meta-label">Transaksi sukses 14h</span>
+                  <strong>${paid.length}</strong>
+                </div>
+                <div class="hero-meta-item">
+                  <span class="hero-meta-label">Total revenue</span>
+                  <strong>${money(revenue)}</strong>
+                </div>
+                <div class="hero-meta-item">
+                  <span class="hero-meta-label">Success rate</span>
+                  <strong>${successRate}%</strong>
+                </div>
+              </div>
+              <div class="hero-actions">
+                <a class="hero-cta" href="#payments" data-tab-link="payments">
+                  Lihat semua transaksi
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                </a>
+                <a class="hero-link" href="#konfigurasi" data-tab-link="konfigurasi">Setup integrasi store</a>
+              </div>
             </div>
-            <div class="metric">
-              <div class="metric-head">
-                <span>Revenue Paid</span>
-                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg></span>
-              </div>
-              <strong>${money(revenue)}</strong>
-              <small>${paid.length} transaksi sukses</small>
-            </div>
-            <div class="metric">
-              <div class="metric-head">
-                <span>Success Rate</span>
-                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m4 13 4 4L20 5"/></svg></span>
-              </div>
-              <strong>${successRate}%</strong>
-              <small>Berdasarkan semua payment tersimpan</small>
-            </div>
-            <div class="metric">
-              <div class="metric-head">
-                <span>Notification Logs</span>
-                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M10 21h4"/></svg></span>
-              </div>
-              <strong>${db.notifications.length}</strong>
-              <small>${whatsappNotifications.length} WA, ${androidNotifications.length} Android</small>
+            <div class="hero-chart">
+              <div class="hero-chart-label">Revenue trend &middot; 14 hari</div>
+              <div class="hero-chart-svg">${sparklineSvg(revenueSeries, { width: 360, height: 96 })}</div>
             </div>
           </div>
 
-          <section class="panel" style="margin-top:18px">
+          <div class="bento">
+            <article class="bento-card span-2">
+              <header class="bento-head">
+                <div>
+                  <span class="bento-eyebrow">Payments</span>
+                  <h3>Volume transaksi</h3>
+                </div>
+                <div class="bento-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                </div>
+              </header>
+              <div class="bento-stat">
+                <strong>${db.payments.length}</strong>
+                <span class="trend-pill ${paymentsTrend >= 0 ? "up" : "down"} sm">
+                  ${paymentsTrend >= 0 ? "+" : ""}${paymentsTrend}%
+                </span>
+              </div>
+              ${distributionBars(distributionParts)}
+              <div class="bento-spark accent">${sparklineSvg(paymentsCountSeries, { width: 360, height: 48 })}</div>
+            </article>
+
+            <article class="bento-card">
+              <header class="bento-head">
+                <div>
+                  <span class="bento-eyebrow">Conversion</span>
+                  <h3>Success rate</h3>
+                </div>
+              </header>
+              <div class="donut-wrap">
+                <div class="donut-ring">
+                  ${donutSvg(successRate, { size: 132, stroke: 12 })}
+                  <div class="donut-center">
+                    <strong>${successRate}<small>%</small></strong>
+                    <span>Paid / Total</span>
+                  </div>
+                </div>
+                <ul class="donut-legend">
+                  <li><i class="dot good"></i>Paid <strong>${paid.length}</strong></li>
+                  <li><i class="dot warn"></i>Pending <strong>${pending.length}</strong></li>
+                  <li><i class="dot muted"></i>Expired <strong>${expired.length}</strong></li>
+                </ul>
+              </div>
+            </article>
+
+            <article class="bento-card">
+              <header class="bento-head">
+                <div>
+                  <span class="bento-eyebrow">System</span>
+                  <h3>Status integrasi</h3>
+                </div>
+              </header>
+              <ul class="status-list">
+                <li>
+                  <span class="status-icon" data-status-icon="wa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-5.4A8.5 8.5 0 1 1 21 11.5Z"/></svg></span>
+                  <div>
+                    <strong>WhatsApp Listener</strong>
+                    <span data-wa-status-text>Mengecek status\u2026</span>
+                  </div>
+                  <span class="pill muted" data-wa-status-pill>idle</span>
+                </li>
+                <li>
+                  <span class="status-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+                  <div>
+                    <strong>Android Listener</strong>
+                    <span>${androidNotifications.length} notif diterima</span>
+                  </div>
+                  <span class="pill ${androidNotifications.length ? "good" : "muted"}">${androidNotifications.length ? "active" : "idle"}</span>
+                </li>
+                <li>
+                  <span class="status-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span>
+                  <div>
+                    <strong>Callback Webhook</strong>
+                    <span>${callbackFailedCount ? `${callbackFailedCount} retry pending` : "Semua sukses"}</span>
+                  </div>
+                  <span class="pill ${callbackFailedCount ? "bad" : "good"}">${callbackFailedCount ? "issues" : "healthy"}</span>
+                </li>
+              </ul>
+            </article>
+
+            <article class="bento-card span-2 activity">
+              <header class="bento-head">
+                <div>
+                  <span class="bento-eyebrow">Activity</span>
+                  <h3>Aktivitas terkini</h3>
+                </div>
+                <a class="bento-link" href="#payments" data-tab-link="payments">Lihat semua</a>
+              </header>
+              ${activityFeed.length ? `<ul class="timeline">
+                ${activityFeed.map((item, idx) => `
+                  <li class="timeline-item ${item.tone}" style="--i:${idx}">
+                    <span class="timeline-dot">${activityIconSvg(item.icon)}</span>
+                    <div class="timeline-body">
+                      <strong>${escapeHtml(item.title)}</strong>
+                      <span>${escapeHtml(item.meta)}</span>
+                    </div>
+                    <time class="timeline-time">${escapeHtml(relativeTime(item.time))}</time>
+                  </li>
+                `).join("")}
+              </ul>` : `<div class="empty-state"><div class="empty-illust"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="22" opacity=".3"/><path d="M22 32h20M32 22v20" opacity=".5"/></svg></div><strong>Belum ada aktivitas</strong><span>Buat payment dari aplikasi store untuk melihat alur live di sini.</span></div>`}
+            </article>
+
+            <article class="bento-card actions">
+              <header class="bento-head">
+                <div>
+                  <span class="bento-eyebrow">Quick</span>
+                  <h3>Aksi cepat</h3>
+                </div>
+              </header>
+              <div class="quick-actions">
+                <a class="quick-action" href="#payments" data-tab-link="payments">
+                  <span class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span>
+                  <span>Daftar Transaksi</span>
+                </a>
+                <a class="quick-action" href="#koneksi" data-tab-link="koneksi">
+                  <span class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.1 0l2.8-2.8a5 5 0 0 0-7.1-7.1L11 4.9"/><path d="M14 11a5 5 0 0 0-7.1 0l-2.8 2.8a5 5 0 0 0 7.1 7.1L13 19.1"/></svg></span>
+                  <span>Atur QRIS</span>
+                </a>
+                <a class="quick-action" href="#whatsapp" data-tab-link="whatsapp">
+                  <span class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-5.4A8.5 8.5 0 1 1 21 11.5Z"/></svg></span>
+                  <span>WA Logs</span>
+                </a>
+                <a class="quick-action" href="#callbacks" data-tab-link="callbacks">
+                  <span class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span>
+                  <span>Webhooks</span>
+                </a>
+                <a class="quick-action" href="#konfigurasi" data-tab-link="konfigurasi">
+                  <span class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.3.25.66.4 1.1.4H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51.6Z"/></svg></span>
+                  <span>API Docs</span>
+                </a>
+                <a class="quick-action" href="#android" data-tab-link="android">
+                  <span class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+                  <span>Android Logs</span>
+                </a>
+              </div>
+            </article>
+          </div>
+
+          <section class="panel recent-panel">
+            <header class="panel-head">
+              <div>
+                <span class="panel-eyebrow">Latest</span>
+                <h3>Payment terbaru</h3>
+              </div>
+              <a class="bento-link" href="#payments" data-tab-link="payments">Lihat semua \u2192</a>
+            </header>
             <div class="table-wrap">
               ${overviewPayments.length ? `<table>
                 <thead>
@@ -1112,13 +2429,16 @@ export function renderDashboard(db, options = {}) {
                   </tr>
                 </thead>
                 <tbody>
-                  ${overviewPayments.map((payment) => `
-                    <tr>
+                  ${overviewPayments.map((payment, idx) => `
+                    <tr style="--i:${idx}">
                       <td><span class="pill ${statusClass(payment.status)}">${escapeHtml(payment.status)}</span></td>
                       <td>
                         <div class="primary-cell">
-                          <strong>${escapeHtml(payment.external_id)}</strong>
-                          <span><code>${escapeHtml(payment.id)}</code></span>
+                          <span class="customer-avatar">${escapeHtml((payment.customer_name || "?").trim().charAt(0).toUpperCase())}</span>
+                          <div>
+                            <strong>${escapeHtml(payment.external_id)}</strong>
+                            <span><code>${escapeHtml(payment.id)}</code></span>
+                          </div>
                         </div>
                       </td>
                       <td><strong>${money(payment.amount)}</strong></td>
@@ -1129,7 +2449,7 @@ export function renderDashboard(db, options = {}) {
                     </tr>
                   `).join("")}
                 </tbody>
-              </table>` : `<div class="empty">Belum ada payment.</div>`}
+              </table>` : `<div class="empty-state"><div class="empty-illust"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="14" width="44" height="36" rx="4" opacity=".4"/><path d="M10 22h44" opacity=".6"/><path d="M22 32h12M22 38h20" opacity=".5"/></svg></div><strong>Belum ada payment</strong><span>Payment yang dibuat dari aplikasi store akan muncul di sini.</span></div>`}
             </div>
           </section>
         </section>
@@ -1152,12 +2472,15 @@ export function renderDashboard(db, options = {}) {
                   </thead>
                   <tbody>
                     ${payments.map((payment, index) => `
-                      <tr data-payment-row data-row-index="${index}">
+                      <tr data-payment-row data-row-index="${index}" style="--i:${index % 10}">
                         <td><span class="pill ${statusClass(payment.status)}">${escapeHtml(payment.status)}</span></td>
                         <td>
                           <div class="primary-cell">
-                            <strong>${escapeHtml(payment.external_id)}</strong>
-                            <span><code>${escapeHtml(payment.id)}</code></span>
+                            <span class="customer-avatar">${escapeHtml((payment.customer_name || "?").trim().charAt(0).toUpperCase())}</span>
+                            <div>
+                              <strong>${escapeHtml(payment.external_id)}</strong>
+                              <span><code>${escapeHtml(payment.id)}</code></span>
+                            </div>
                           </div>
                         </td>
                         <td><strong>${money(payment.amount)}</strong></td>
@@ -1512,6 +2835,7 @@ if (signature !== expected) {
       const isConfig = tab === "konfigurasi";
       const isConnection = tab === "koneksi";
 
+      document.body.setAttribute("data-tab", tab);
       overviewSection.hidden = !isOverview;
       configSection.hidden = !isConfig;
       connectionSection.hidden = !isConnection;
@@ -1548,14 +2872,87 @@ if (signature !== expected) {
       });
     });
 
+    document.querySelectorAll("[data-tab-link]").forEach((el) => {
+      el.addEventListener("click", (event) => {
+        event.preventDefault();
+        const tab = el.getAttribute("data-tab-link");
+        activateTab(tab);
+        if (tab === "koneksi") ensureWaConnection();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    });
+
     sidebarToggle?.addEventListener("click", () => {
       document.body.classList.toggle("sidebar-open");
     });
     sidebarClosers.forEach((element) => {
       element.addEventListener("click", () => document.body.classList.remove("sidebar-open"));
     });
+
+    function setupPopover(toggleSel, popSel, wrapSel) {
+      const toggle = document.querySelector(toggleSel);
+      const pop = document.querySelector(popSel);
+      const wrap = document.querySelector(wrapSel);
+      if (!toggle || !pop || !wrap) return null;
+      function close() { pop.hidden = true; }
+      function open() { pop.hidden = false; }
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (pop.hidden) open(); else close();
+      });
+      document.addEventListener("click", (e) => {
+        if (!wrap.contains(e.target)) close();
+      });
+      return { close };
+    }
+    const notifPop = setupPopover("[data-notif-toggle]", "[data-notif-pop]", "[data-notif-wrap]");
+    const userPop = setupPopover("[data-user-toggle]", "[data-user-pop]", "[data-user-wrap]");
+
+    const globalSearch = document.querySelector("[data-global-search]");
+    const paymentRowsAll = () => Array.from(document.querySelectorAll("[data-payment-row]"));
+    let searchActive = false;
+    function applySearch(query) {
+      const q = query.trim().toLowerCase();
+      const rows = paymentRowsAll();
+      if (!q) {
+        searchActive = false;
+        rows.forEach((row) => row.removeAttribute("data-search-hide"));
+        if (typeof renderPaymentPage === "function") renderPaymentPage();
+        return;
+      }
+      searchActive = true;
+      rows.forEach((row) => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(q)) {
+          row.removeAttribute("data-search-hide");
+          row.hidden = false;
+        } else {
+          row.setAttribute("data-search-hide", "1");
+          row.hidden = true;
+        }
+      });
+    }
+    globalSearch?.addEventListener("input", (e) => applySearch(e.target.value));
+    globalSearch?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (e.target.value.trim()) activateTab("payments");
+      }
+    });
+
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") document.body.classList.remove("sidebar-open");
+      if (event.key === "Escape") {
+        document.body.classList.remove("sidebar-open");
+        notifPop?.close();
+        userPop?.close();
+      }
+      if (event.key === "/" && document.activeElement !== globalSearch) {
+        const tag = document.activeElement?.tagName;
+        if (tag !== "INPUT" && tag !== "TEXTAREA") {
+          event.preventDefault();
+          globalSearch?.focus();
+        }
+      }
     });
 
     activateTab(localStorage.getItem(activeTabStorageKey) || "overview", false);
@@ -1675,9 +3072,20 @@ if (signature !== expected) {
     }
 
     function renderWaStatus(data) {
-      if (!waStatus) return;
       const status = data.status || "unknown";
       const detail = data.error || data.last_error || data.jid || data.last_message_at || "";
+      const overviewText = document.querySelector("[data-wa-status-text]");
+      const overviewPill = document.querySelector("[data-wa-status-pill]");
+      if (overviewText) overviewText.textContent = detail || ("Status: " + status);
+      if (overviewPill) {
+        overviewPill.textContent = status;
+        overviewPill.classList.remove("good", "warn", "bad", "muted");
+        if (status === "connected" || status === "open") overviewPill.classList.add("good");
+        else if (["connecting", "reconnecting", "qr"].includes(status)) overviewPill.classList.add("warn");
+        else if (["error", "logged_out"].includes(status)) overviewPill.classList.add("bad");
+        else overviewPill.classList.add("muted");
+      }
+      if (!waStatus) return;
       waStatus.textContent = "Status: " + status + (detail ? " - " + detail : "");
 
       if (data.qr) {
