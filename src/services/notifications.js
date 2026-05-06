@@ -5,6 +5,9 @@ import { expireOldPayments, markPaymentPaid } from "./payments.js";
 function parseIndonesianAmount(text) {
   const normalized = String(text || "").replace(/\s+/g, " ");
   const patterns = [
+    /nominal\s*:\s*(?:rp\.?\s*)?([0-9][0-9.,]*)/i,
+    /jumlah\s*:\s*(?:rp\.?\s*)?([0-9][0-9.,]*)/i,
+    /amount\s*:\s*(?:rp\.?\s*)?([0-9][0-9.,]*)/i,
     /rp\.?\s*([0-9][0-9.,]*)/i,
     /idr\s*([0-9][0-9.,]*)/i,
   ];
@@ -62,6 +65,7 @@ export async function recordAndroidNotification(input) {
   const amount = Number(input.amount || parseIndonesianAmount(text));
   const notification = {
     id: randomId("ntf"),
+    source: input.source || "android",
     package_name: packageName,
     title,
     text: bodyText,
@@ -118,4 +122,15 @@ export async function recordAndroidNotification(input) {
   }
 
   return { notification, payment: paidPayment, duplicate: Boolean(duplicateNotification) };
+}
+
+export async function recordWhatsAppMessage(input) {
+  return recordAndroidNotification({
+    source: "whatsapp",
+    package_name: "com.whatsapp",
+    title: firstString(input.chat_name, input.chatName, input.sender, input.from, "WhatsApp"),
+    text: firstString(input.text, input.message, input.body),
+    big_text: firstString(input.big_text, input.bigText, input.caption),
+    received_at: input.received_at || input.receivedAt || new Date().toISOString(),
+  });
 }

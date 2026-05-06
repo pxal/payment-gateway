@@ -9,14 +9,16 @@ Gateway pembayaran QRIS pribadi untuk store sendiri.
 3. Gateway mengubah QRIS statis menjadi QRIS dinamis sesuai nominal.
 4. Customer membayar QRIS.
 5. Aplikasi Android membaca notifikasi pembayaran dan mengirim ke `POST /api/android/notifications`.
-6. Gateway mencocokkan nominal dan menandai payment sebagai `paid`.
-7. Gateway mengirim callback ke aplikasi store.
+6. Alternatifnya, dashboard bisa connect WhatsApp Web dan membaca chat notifikasi seperti BRI-NOTIF.
+7. Gateway mencocokkan nominal dan menandai payment sebagai `paid`.
+8. Gateway mengirim callback ke aplikasi store.
 
 ## Menjalankan
 
 ```bash
 copy .env.example .env
 npm run seed
+npm install
 npm run dev
 ```
 
@@ -82,7 +84,7 @@ Setelah install APK baru:
 3. Pastikan Allowed Packages berisi:
 
 ```text
-id.dana,ovo.id,com.gojek.gopay,com.shopee.id,com.shopeepay.id
+id.dana,ovo.id,com.gojek.gopay,com.shopee.id,com.shopeepay.id,com.whatsapp
 ```
 
 4. Klik **Save Settings**.
@@ -161,8 +163,28 @@ Endpoint juga menerima alias `POST /api/android/notification` dan nama field And
 Package pembayaran yang umum dipakai:
 
 ```text
-id.dana,ovo.id,com.gojek.gopay,com.shopee.id,com.shopeepay.id
+id.dana,ovo.id,com.gojek.gopay,com.shopee.id,com.shopeepay.id,com.whatsapp
 ```
+
+## WhatsApp BRI-NOTIF
+
+Dashboard menu **Stores** punya panel **Koneksi WhatsApp**:
+
+1. Klik **Connect WA**.
+2. Scan QR dengan WhatsApp di HP yang menerima chat BRI-NOTIF.
+3. Buka menu **Logs WA** untuk melihat pesan yang masuk dan hasil pencocokan nominal.
+
+Format pesan yang didukung antara lain:
+
+```text
+Transaksi QR Telah Diterima.
+
+Nominal : 37295
+Jam : 2026-04-16 17:39:36
+Nomor Referensi : 010000CTM594
+```
+
+Nominal akan dicocokkan dengan payment `pending` yang jumlahnya sama dan belum expired.
 
 Jika tombol test dari aplikasi Android masuk ke dashboard tetapi notifikasi pembayaran asli tidak masuk,
 aktifkan ulang akses notifikasi untuk aplikasi listener, simpan ulang package filter, lalu restart aplikasi

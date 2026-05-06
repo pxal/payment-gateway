@@ -4,6 +4,23 @@ export function randomId(prefix) {
   return `${prefix}_${crypto.randomBytes(12).toString("hex")}`;
 }
 
+export function createMerchantId(existingStores = []) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const existingIds = new Set(existingStores.map((store) => store.id));
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    let suffix = "";
+    for (let index = 0; index < 5; index += 1) {
+      suffix += alphabet[crypto.randomInt(alphabet.length)];
+    }
+
+    const merchantId = `VER-${suffix}`;
+    if (!existingIds.has(merchantId)) return merchantId;
+  }
+
+  throw new Error("Failed to generate merchant ID");
+}
+
 export function hmacSha256(payload, secret) {
   return crypto.createHmac("sha256", secret).update(payload).digest("hex");
 }

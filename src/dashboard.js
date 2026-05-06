@@ -52,6 +52,8 @@ export function renderDashboard(db, options = {}) {
   const payments = db.payments.slice(0, 100);
   const overviewPayments = db.payments.slice(0, 5);
   const notifications = db.notifications;
+  const androidNotifications = notifications.filter((item) => item.source !== "whatsapp");
+  const whatsappNotifications = notifications.filter((item) => item.source === "whatsapp");
   const callbacks = db.callbacks.slice(0, 30);
   const paid = db.payments.filter((payment) => payment.status === "paid");
   const pending = db.payments.filter((payment) => payment.status === "pending");
@@ -543,6 +545,22 @@ export function renderDashboard(db, options = {}) {
       color: var(--muted);
       font-size: 13px;
     }
+    .wa-qr {
+      display: none;
+      width: 100%;
+      max-width: 280px;
+      aspect-ratio: 1;
+      margin: 18px auto 16px;
+      justify-self: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px;
+    }
+    .wa-actions {
+      justify-content: center;
+      margin-top: 2px;
+    }
     .pagination {
       display: flex;
       align-items: center;
@@ -632,13 +650,17 @@ export function renderDashboard(db, options = {}) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
             Daftar Transaksi
           </a>
-          <a href="#stores">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 10h16l-1-5H5l-1 5Z"/><path d="M6 10v9h12v-9"/><path d="M9 19v-5h6v5"/></svg>
-            Stores
+          <a href="#koneksi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10 13a5 5 0 0 0 7.1 0l2.8-2.8a5 5 0 0 0-7.1-7.1L11 4.9"/><path d="M14 11a5 5 0 0 0-7.1 0l-2.8 2.8a5 5 0 0 0 7.1 7.1L13 19.1"/></svg>
+            Koneksi
           </a>
           <a href="#android">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
             Android Logs
+          </a>
+          <a href="#whatsapp">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20l1.2-5.4A8.5 8.5 0 1 1 21 11.5Z"/><path d="M9 9.5c.2 3 2.2 5 5.2 5.5l1.3-1.3-2-.9-.8.8c-1-.5-1.8-1.3-2.3-2.3l.8-.8-.9-2L9 9.5Z"/></svg>
+            Logs WA
           </a>
           <a href="#callbacks">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
@@ -698,11 +720,11 @@ export function renderDashboard(db, options = {}) {
             </div>
             <div class="metric">
               <div class="metric-head">
-                <span>Android Logs</span>
+                <span>Notification Logs</span>
                 <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M10 21h4"/></svg></span>
               </div>
               <strong>${db.notifications.length}</strong>
-              <small>${db.notifications.filter((item) => item.status === "matched").length} matched notification</small>
+              <small>${whatsappNotifications.length} WA, ${androidNotifications.length} Android</small>
             </div>
           </div>
 
@@ -788,7 +810,7 @@ export function renderDashboard(db, options = {}) {
 
             <section id="android" class="panel section-anchor">
               <div class="table-wrap">
-                ${notifications.length ? `<table>
+                ${androidNotifications.length ? `<table>
                   <thead>
                     <tr>
                       <th>Status</th>
@@ -800,7 +822,7 @@ export function renderDashboard(db, options = {}) {
                     </tr>
                   </thead>
                   <tbody>
-                    ${notifications.map((item, index) => `
+                    ${androidNotifications.map((item, index) => `
                       <tr data-android-row data-row-index="${index}">
                         <td><span class="pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
                         <td>${item.parsed_amount ? money(item.parsed_amount) : "-"}</td>
@@ -817,6 +839,40 @@ export function renderDashboard(db, options = {}) {
                   <span data-android-page>Page 1 / 1</span>
                   <button type="button" data-android-next>Next</button>
                 </div>` : `<div class="empty">Belum ada notifikasi Android.</div>`}
+              </div>
+            </section>
+
+            <section id="whatsapp" class="panel section-anchor">
+              <div class="table-wrap">
+                ${whatsappNotifications.length ? `<table>
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>Amount</th>
+                      <th>Chat</th>
+                      <th>Message</th>
+                      <th>Matched Payment</th>
+                      <th>Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${whatsappNotifications.map((item, index) => `
+                      <tr data-wa-row data-row-index="${index}">
+                        <td><span class="pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
+                        <td>${item.parsed_amount ? money(item.parsed_amount) : "-"}</td>
+                        <td>${escapeHtml(item.title || "-")}</td>
+                        <td>${escapeHtml(item.text || item.big_text || "-")}</td>
+                        <td>${item.matched_payment_id ? `<code>${escapeHtml(item.matched_payment_id)}</code>` : "-"}</td>
+                        <td>${formatDate(item.received_at || item.created_at)}</td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+                <div class="pagination" data-wa-pagination>
+                  <button type="button" data-wa-prev>Previous</button>
+                  <span data-wa-page>Page 1 / 1</span>
+                  <button type="button" data-wa-next>Next</button>
+                </div>` : `<div class="empty">Belum ada pesan WhatsApp yang cocok format pembayaran.</div>`}
               </div>
             </section>
 
@@ -879,66 +935,92 @@ export function renderDashboard(db, options = {}) {
                     }).join("") : `<div class="empty">Belum ada store.</div>`}
                   </div>
 
-                  <form id="store-form">
-                    <input type="hidden" name="store_id" value="">
-                    <label>Store Name
-                      <input name="name" placeholder="Alvian Store" required>
-                    </label>
-                    <label>Upload QRIS Image
-                      <input id="qris-upload" type="file" accept="image/*">
-                    </label>
-                    <label>Static QRIS String
-                      <textarea name="static_qris" placeholder="000201010211..."></textarea>
-                    </label>
-                    <button type="submit">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
-                      Save Store
-                    </button>
-                    <button class="button-secondary" id="store-reset" type="button">New Store</button>
-                    <div class="message" id="store-message"></div>
-                  </form>
+                  <div class="stack">
+                    <form id="store-form">
+                      <input type="hidden" name="store_id" value="">
+                      <label>Store Name
+                        <input name="name" placeholder="Store" required>
+                      </label>
+                      <button type="submit">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                        Save Store
+                      </button>
+                      <button class="button-secondary" id="store-reset" type="button">New Store</button>
+                      <div class="message" id="store-message"></div>
+                    </form>
+                  </div>
                 </div>
               </div>
             </section>
           </aside>
         </div>
 
+        <section id="koneksi" class="panel section-anchor">
+          <div class="panel-body">
+            <div class="doc-grid">
+              <div class="doc-card">
+                <h3>Koneksi WhatsApp</h3>
+                <div class="message" data-wa-status>WhatsApp belum dicek.</div>
+                <img class="wa-qr" data-wa-qr alt="WhatsApp QR">
+                <div class="store-actions wa-actions">
+                  <button class="button-secondary" type="button" data-wa-refresh>Refresh QR</button>
+                  <button class="danger-button" type="button" data-wa-disconnect>Disconnect</button>
+                </div>
+              </div>
+              ${stores.length ? stores.map((store) => {
+                return `<div class="doc-card">
+                  <form data-qris-form="${escapeHtml(store.id)}">
+                    <label>Upload QRIS Image
+                      <input data-qris-upload="${escapeHtml(store.id)}" type="file" accept="image/*">
+                    </label>
+                    <label>Static QRIS String
+                      <textarea name="static_qris" data-qris-text="${escapeHtml(store.id)}" placeholder="000201010211...">${escapeHtml(store.static_qris || "")}</textarea>
+                    </label>
+                    <button type="submit">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                      Save QRIS
+                    </button>
+                    <div class="message" data-qris-message="${escapeHtml(store.id)}"></div>
+                  </form>
+                </div>`;
+              }).join("") : `<div class="empty">Belum ada store.</div>`}
+            </div>
+          </div>
+        </section>
+
         <section id="konfigurasi" class="panel section-anchor">
           <div class="panel-body">
             <div class="doc-grid">
               <div class="doc-card">
-                <h3>Credential Store</h3>
-                <p>Gunakan API key ini dari backend store. Jangan taruh API key di frontend atau aplikasi publik.</p>
+                <h3>Wajib Partner Setting</h3>
+                <p>Partner wajib menyimpan credential dan endpoint ini di backend mereka.</p>
                 <ul class="doc-list">
                   <li>Base URL: <code>${escapeHtml(baseUrl)}</code></li>
-                  <li>Store: <code>${escapeHtml(firstStore.name || "-")}</code></li>
-                  <li>Store ID: <code>${escapeHtml(firstStore.id || "-")}</code></li>
-                  <li>API Key: <code>${escapeHtml(firstApiKey.key || "-")}</code></li>
-                  <li>Webhook Secret: <code>${escapeHtml(firstStore.webhook_secret || "-")}</code></li>
+                  <li>Merchant ID: <code>${escapeHtml(firstStore.id || "VER-XXXXX")}</code></li>
+                  <li>API Key: <code>${escapeHtml(firstApiKey.key || "API_KEY_STORE")}</code></li>
+                  <li>Webhook Secret: <code>${escapeHtml(firstStore.webhook_secret || "WEBHOOK_SECRET")}</code></li>
+                  <li>Callback URL: endpoint HTTPS partner yang menerima update status payment.</li>
                 </ul>
               </div>
               <div class="doc-card">
-                <h3>Alur Checkout</h3>
-                <p>Store tetap menjadi sumber order. Gateway hanya membuat QRIS, memvalidasi notifikasi, lalu mengirim callback.</p>
-                <ul class="doc-list">
-                  <li>1. Store membuat order dan total nominal.</li>
-                  <li>2. Store memanggil <code>POST /api/payments</code>.</li>
-                  <li>3. Customer membayar QRIS dari response gateway.</li>
-                  <li>4. Android mengirim notifikasi ke gateway.</li>
-                  <li>5. Gateway callback ke store saat status <code>paid</code>.</li>
-                </ul>
+                <h3>Header Request</h3>
+                <p>Semua request dari partner ke gateway wajib memakai API key aktif dan merchant ID yang cocok.</p>
+                <pre>Authorization: Bearer ${escapeHtml(firstApiKey.key || "API_KEY_STORE")}
+X-Merchant-ID: ${escapeHtml(firstStore.id || "VER-XXXXX")}
+Content-Type: application/json</pre>
               </div>
               <div class="doc-card">
                 <h3>Create Payment dari Store</h3>
                 <p>Endpoint utama yang dipanggil aplikasi store ketika customer checkout.</p>
                 <pre>POST /api/payments
 Authorization: Bearer ${escapeHtml(firstApiKey.key || "API_KEY_STORE")}
+X-Merchant-ID: ${escapeHtml(firstStore.id || "VER-XXXXX")}
 Content-Type: application/json
 
 {
   "external_id": "ORDER-1001",
   "amount": 50000,
-  "customer_name": "Alvian",
+  "customer_name": "Customer",
   "callback_url": "https://store-kamu.com/api/payment-callback",
   "expires_in": 900
 }</pre>
@@ -958,9 +1040,10 @@ Content-Type: application/json
               </div>
               <div class="doc-card">
                 <h3>Check Status Payment</h3>
-                <p>Store bisa polling status sebagai fallback, tapi update utama sebaiknya dari callback.</p>
+                <p>Partner bisa polling status sebagai fallback jika callback belum diterima.</p>
                 <pre>GET /api/payments/AL-XXXXXXX
-Authorization: Bearer ${escapeHtml(firstApiKey.key || "API_KEY_STORE")}</pre>
+Authorization: Bearer ${escapeHtml(firstApiKey.key || "API_KEY_STORE")}
+X-Merchant-ID: ${escapeHtml(firstStore.id || "VER-XXXXX")}</pre>
               </div>
               <div class="doc-card">
                 <h3>Callback ke Store</h3>
@@ -993,17 +1076,16 @@ if (signature !== expected) {
 }</pre>
               </div>
               <div class="doc-card">
-                <h3>Android Notification Listener</h3>
-                <p>Aplikasi Android internal mengirim teks notifikasi bank/e-wallet ke endpoint ini.</p>
-                <pre>POST /api/android/notifications
-X-Android-Secret: ${escapeHtml(androidSharedSecret)}
-Content-Type: application/json
-
-{
-  "package_name": "id.dana",
-  "title": "DANA",
-  "text": "Pembayaran QRIS masuk Rp50.000"
-}</pre>
+                <h3>Aturan Integrasi</h3>
+                <p>Partner cukup membuat order, menampilkan QRIS, dan menerima callback.</p>
+                <ul class="doc-list">
+                  <li><code>external_id</code> harus unik per order aktif.</li>
+                  <li><code>amount</code> wajib integer rupiah tanpa titik/koma.</li>
+                  <li><code>X-Merchant-ID</code> wajib dikirim dan harus cocok dengan API key.</li>
+                  <li><code>callback_url</code> harus bisa menerima request POST JSON.</li>
+                  <li>Status sukses partner hanya boleh dari callback valid atau polling status <code>paid</code>.</li>
+                  <li>Verifikasi <code>X-Gateway-Signature</code> memakai raw body dan webhook secret.</li>
+                </ul>
               </div>
             </div>
           </div>
@@ -1020,6 +1102,7 @@ Content-Type: application/json
     const topbarSubtitle = document.getElementById("page-subtitle");
     const overviewSection = document.getElementById("overview");
     const configSection = document.getElementById("konfigurasi");
+    const connectionSection = document.getElementById("koneksi");
     const panelGrid = document.querySelector(".panel-grid");
     const leftStack = panelGrid?.querySelector(".stack");
     const rightStack = panelGrid?.querySelector("aside.stack");
@@ -1028,8 +1111,9 @@ Content-Type: application/json
     const tabCopy = {
       overview: ["Hi, Alvian", "Ringkasan performa payment gateway kamu."],
       payments: ["Daftar Transaksi", "Daftar invoice QRIS terbaru yang dibuat dari aplikasi store."],
-      stores: ["Stores", "Kelola QRIS statis yang menjadi sumber QRIS dinamis."],
+      koneksi: ["Koneksi", "API key, webhook secret, dan merchant ID untuk aplikasi store."],
       android: ["Android Logs", "Pantau notifikasi Android dan hasil validasinya."],
+      whatsapp: ["Logs WA", "Pantau pesan WhatsApp BRI-NOTIF dan hasil pencocokan nominal."],
       callbacks: ["Webhooks", "Riwayat callback yang dikirim ke aplikasi store."],
       konfigurasi: ["Konfigurasi", "Panduan koneksi aplikasi store ke payment gateway ini."],
     };
@@ -1038,23 +1122,20 @@ Content-Type: application/json
       const tab = document.getElementById(tabName) ? tabName : "overview";
       const isOverview = tab === "overview";
       const isConfig = tab === "konfigurasi";
-      const isRightPanel = tab === "stores";
+      const isConnection = tab === "koneksi";
 
       overviewSection.hidden = !isOverview;
       configSection.hidden = !isConfig;
-      panelGrid.hidden = isOverview || isConfig;
+      connectionSection.hidden = !isConnection;
+      panelGrid.hidden = isOverview || isConfig || isConnection;
       panelGrid.classList.toggle("single", !isOverview && !isConfig);
 
       panelSections.forEach((section) => {
         section.hidden = section.id !== tab;
       });
 
-      if (leftStack) {
-        leftStack.hidden = isRightPanel;
-      }
-      if (rightStack) {
-        rightStack.hidden = !isRightPanel;
-      }
+      if (leftStack) leftStack.hidden = false;
+      if (rightStack) rightStack.hidden = true;
 
       tabLinks.forEach((link) => {
         link.classList.toggle("active", link.getAttribute("href") === "#" + tab);
@@ -1072,7 +1153,9 @@ Content-Type: application/json
     tabLinks.forEach((link) => {
       link.addEventListener("click", (event) => {
         event.preventDefault();
-        activateTab(link.getAttribute("href").slice(1));
+        const tab = link.getAttribute("href").slice(1);
+        activateTab(tab);
+        if (tab === "koneksi") ensureWaConnection();
         document.body.classList.remove("sidebar-open");
       });
     });
@@ -1154,6 +1237,124 @@ Content-Type: application/json
     });
     renderAndroidPage();
 
+    const waRows = Array.from(document.querySelectorAll("[data-wa-row]"));
+    const waPrev = document.querySelector("[data-wa-prev]");
+    const waNext = document.querySelector("[data-wa-next]");
+    const waPage = document.querySelector("[data-wa-page]");
+    let currentWaPage = 1;
+
+    function renderWaPage() {
+      if (!waRows.length) return;
+      const totalPages = Math.max(1, Math.ceil(waRows.length / rowsPerPage));
+      currentWaPage = Math.min(Math.max(currentWaPage, 1), totalPages);
+      const start = (currentWaPage - 1) * rowsPerPage;
+      const end = start + rowsPerPage;
+
+      waRows.forEach((row, index) => {
+        row.hidden = index < start || index >= end;
+      });
+
+      waPage.textContent = "Page " + currentWaPage + " / " + totalPages;
+      waPrev.disabled = currentWaPage <= 1;
+      waNext.disabled = currentWaPage >= totalPages;
+    }
+
+    waPrev?.addEventListener("click", () => {
+      currentWaPage -= 1;
+      renderWaPage();
+    });
+    waNext?.addEventListener("click", () => {
+      currentWaPage += 1;
+      renderWaPage();
+    });
+    renderWaPage();
+
+    const waStatus = document.querySelector("[data-wa-status]");
+    const waQr = document.querySelector("[data-wa-qr]");
+    const waRefresh = document.querySelector("[data-wa-refresh]");
+    const waDisconnect = document.querySelector("[data-wa-disconnect]");
+    let waPollTimer = null;
+
+    function stopWaPolling() {
+      if (!waPollTimer) return;
+      clearInterval(waPollTimer);
+      waPollTimer = null;
+    }
+
+    function startWaPolling() {
+      if (waPollTimer) return;
+      waPollTimer = setInterval(() => fetchWaStatus("/api/admin/wa/status", "GET", { silent: true }), 2000);
+    }
+
+    function renderWaStatus(data) {
+      if (!waStatus) return;
+      const status = data.status || "unknown";
+      const detail = data.error || data.last_error || data.jid || data.last_message_at || "";
+      waStatus.textContent = "Status: " + status + (detail ? " - " + detail : "");
+
+      if (data.qr) {
+        const encoded = encodeURIComponent(data.qr);
+        if (waQr) {
+          waQr.src = "https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=" + encoded;
+          waQr.style.display = "block";
+        }
+      } else {
+        if (waQr) {
+          waQr.removeAttribute("src");
+          waQr.style.display = "none";
+        }
+      }
+
+      if (["connecting", "reconnecting", "qr"].includes(status)) {
+        startWaPolling();
+      } else {
+        stopWaPolling();
+      }
+    }
+
+    async function fetchWaStatus(path = "/api/admin/wa/status", method = "GET", options = {}) {
+      if (waStatus && !options.silent) waStatus.textContent = "Menghubungi WhatsApp service...";
+      const response = await fetch(path, {
+        method,
+        cache: "no-store",
+        headers: { "Accept": "application/json" },
+      });
+      const data = await response.json();
+      renderWaStatus(data);
+      return data;
+    }
+
+    async function ensureWaConnection() {
+      const data = await fetchWaStatus();
+      if (["disconnected", "logged_out", "error"].includes(data.status)) {
+        await fetchWaStatus("/api/admin/wa/connect", "POST");
+        startWaPolling();
+        return;
+      }
+
+      if (["connecting", "reconnecting", "qr"].includes(data.status)) {
+        startWaPolling();
+      }
+    }
+
+    async function refreshWaConnection() {
+      if (waStatus) waStatus.textContent = "Membuat QR WhatsApp baru...";
+      stopWaPolling();
+      await fetchWaStatus("/api/admin/wa/disconnect", "POST");
+      await fetchWaStatus("/api/admin/wa/connect", "POST");
+      startWaPolling();
+    }
+
+    waRefresh?.addEventListener("click", refreshWaConnection);
+    waDisconnect?.addEventListener("click", async () => {
+      stopWaPolling();
+      await fetchWaStatus("/api/admin/wa/disconnect", "POST");
+    });
+    if (waStatus) fetchWaStatus();
+    if ((localStorage.getItem(activeTabStorageKey) || "overview") === "koneksi") {
+      ensureWaConnection();
+    }
+
     const stores = ${JSON.stringify(stores.map((store) => ({
       id: store.id,
       name: store.name || "",
@@ -1163,13 +1364,11 @@ Content-Type: application/json
 
     const storeForm = document.getElementById("store-form");
     const storeMessage = document.getElementById("store-message");
-    const storeUpload = document.getElementById("qris-upload");
 
     function fillStoreForm(store = null) {
       if (!storeForm) return;
       storeForm.elements.store_id.value = store?.id || "";
       storeForm.elements.name.value = store?.name || "";
-      storeForm.elements.static_qris.value = store?.static_qris || "";
       storeMessage.textContent = store ? "Editing " + store.name : "Creating new store";
     }
 
@@ -1243,23 +1442,55 @@ Content-Type: application/json
       return decodeQrWithCanvas(file);
     }
 
-    storeUpload?.addEventListener("change", async () => {
-      const file = storeUpload.files?.[0];
-      if (!file) return;
-      storeMessage.textContent = "Reading QR image...";
+    document.querySelectorAll("[data-qris-upload]").forEach((input) => {
+      input.addEventListener("change", async () => {
+        const storeId = input.dataset.qrisUpload;
+        const file = input.files?.[0];
+        const textArea = document.querySelector('[data-qris-text="' + storeId + '"]');
+        const message = document.querySelector('[data-qris-message="' + storeId + '"]');
+        if (!file || !textArea || !message) return;
+        message.textContent = "Reading QR image...";
 
-      try {
-        const qrisString = await decodeQrImage(file);
-        if (!qrisString) {
-          storeMessage.textContent = "QR tidak terbaca. Coba gambar yang lebih jelas atau paste manual.";
+        try {
+          const qrisString = await decodeQrImage(file);
+          if (!qrisString) {
+            message.textContent = "QR tidak terbaca. Coba gambar yang lebih jelas atau paste manual.";
+            return;
+          }
+
+          textArea.value = qrisString;
+          message.textContent = "QRIS string berhasil dibaca dari gambar.";
+        } catch (error) {
+          message.textContent = "Gagal membaca QR image: " + error.message;
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-qris-form]").forEach((formElement) => {
+      formElement.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const storeId = formElement.dataset.qrisForm;
+        const message = document.querySelector('[data-qris-message="' + storeId + '"]');
+        const form = new FormData(formElement);
+        const payload = {
+          static_qris: form.get("static_qris"),
+        };
+
+        if (message) message.textContent = "Saving QRIS...";
+        const response = await fetch("/api/admin/stores/" + encodeURIComponent(storeId) + "/qris", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          if (message) message.textContent = data.error || "Failed to save QRIS";
           return;
         }
 
-        storeForm.elements.static_qris.value = qrisString;
-        storeMessage.textContent = "QRIS string berhasil dibaca dari gambar.";
-      } catch (error) {
-        storeMessage.textContent = "Gagal membaca QR image: " + error.message;
-      }
+        if (message) message.textContent = "QRIS saved";
+        setTimeout(() => window.location.reload(), 800);
+      });
     });
 
     storeForm?.addEventListener("submit", async (event) => {
@@ -1268,7 +1499,6 @@ Content-Type: application/json
       const storeId = form.get("store_id");
       const payload = {
         name: form.get("name"),
-        static_qris: form.get("static_qris"),
       };
 
       storeMessage.textContent = "Saving...";

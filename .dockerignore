@@ -4,6 +4,9 @@ node_modules
 npm-debug.log
 .env
 data/*.json
+data/*.log
+data/wa-auth
+data/wa-auth/**
 !data/.gitkeep
 android-listener
 Dockerfile

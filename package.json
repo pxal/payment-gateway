@@ -9,6 +9,9 @@
     "seed": "node src/seed.js",
     "android:sync-env": "node scripts/sync-android-env.js"
   },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18"
+  },
   "engines": {
     "node": ">=18"
   }

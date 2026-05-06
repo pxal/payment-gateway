@@ -1,0 +1,133 @@
+KONFIGURASI INTEGRASI PARTNER - QRIS GATEWAY
+
+Credential wajib disimpan di backend partner:
+
+Base URL:
+http://localhost:1000
+
+Merchant ID:
+VER-XXXXX
+
+API Key:
+API_KEY_STORE
+
+Webhook Secret:
+WEBHOOK_SECRET
+
+Callback URL:
+Endpoint HTTPS milik partner yang menerima update status payment dari gateway.
+Contoh: https://domain-partner.com/api/payment-callback
+
+
+HEADER WAJIB REQUEST KE GATEWAY
+
+Authorization: Bearer API_KEY
+X-Merchant-ID: MERCHANT_ID
+Content-Type: application/json
+
+Contoh:
+
+Authorization: Bearer API_KEY_STORE
+X-Merchant-ID: VER-XXXXX
+Content-Type: application/json
+
+
+CREATE PAYMENT
+
+POST /api/payments
+
+Request body:
+
+{
+  "external_id": "ORDER-1001",
+  "amount": 50000,
+  "customer_name": "Customer",
+  "callback_url": "https://domain-partner.com/api/payment-callback",
+  "expires_in": 900
+}
+
+Catatan:
+- external_id wajib unik untuk order aktif.
+- amount wajib integer rupiah tanpa titik/koma.
+- callback_url wajib bisa menerima POST JSON dari gateway.
+- expires_in dalam detik. Default yang disarankan: 900.
+
+Response:
+
+{
+  "payment_id": "AL-XXXXXXX",
+  "external_id": "ORDER-1001",
+  "amount": 50000,
+  "status": "pending",
+  "qr_string": "000201010212...",
+  "qr_image_url": "http://localhost:1000/api/payments/AL-XXXXXXX/qr",
+  "expired_at": "2026-05-04T13:15:00.000Z",
+  "paid_at": null,
+  "callback_status": "pending"
+}
+
+Partner wajib menyimpan payment_id dan external_id.
+Partner dapat menampilkan QR ke customer dari qr_image_url atau qr_string.
+
+
+CHECK STATUS PAYMENT
+
+GET /api/payments/AL-XXXXXXX
+
+Header tetap wajib:
+
+Authorization: Bearer API_KEY
+X-Merchant-ID: MERCHANT_ID
+
+Status yang mungkin muncul:
+
+pending  = payment masih menunggu pembayaran
+paid     = payment sudah dibayar
+expired  = payment expired sebelum dibayar
+
+
+CALLBACK DARI GATEWAY KE PARTNER
+
+Gateway akan mengirim POST ke callback_url ketika payment valid.
+
+Header callback:
+
+X-Gateway-Signature: HMAC_SHA256(raw_body, webhook_secret)
+Content-Type: application/json
+
+Body callback:
+
+{
+  "payment_id": "AL-XXXXXXX",
+  "external_id": "ORDER-1001",
+  "amount": 50000,
+  "status": "paid",
+  "paid_at": "2026-05-04T13:20:00.000Z"
+}
+
+Partner wajib memverifikasi X-Gateway-Signature sebelum mengubah status order.
+
+
+CONTOH VERIFIKASI CALLBACK NODE.JS
+
+import crypto from "node:crypto";
+
+const signature = req.headers["x-gateway-signature"];
+const expected = crypto
+  .createHmac("sha256", "WEBHOOK_SECRET")
+  .update(rawBody)
+  .digest("hex");
+
+if (signature !== expected) {
+  throw new Error("Invalid callback signature");
+}
+
+
+ATURAN INTEGRASI
+
+1. Jangan taruh API key atau webhook secret di frontend.
+2. Merchant ID wajib dikirim di header X-Merchant-ID.
+3. API key dan Merchant ID harus cocok.
+4. Partner hanya boleh menandai order sukses jika callback valid atau status polling bernilai paid.
+5. Verifikasi signature callback memakai raw body, bukan object JSON yang sudah di-parse.
+6. Jika callback gagal diterima, partner boleh polling GET /api/payments/:payment_id sebagai fallback.

@@ -7,7 +7,8 @@ import { renderDashboard } from "./dashboard.js";
 import { authenticateStore } from "./services/auth.js";
 import { createPayment, expireOldPayments, getPayment, listPayments } from "./services/payments.js";
 import { recordAndroidNotification } from "./services/notifications.js";
-import { createApiKey, createWebhookSecret, randomId, signValue, timingSafeEqualString, verifySignedValue } from "./utils/security.js";
+import { disconnectWhatsApp, getWhatsAppStatus, startWhatsApp } from "./services/whatsapp.js";
+import { createApiKey, createMerchantId, createWebhookSecret, randomId, signValue, timingSafeEqualString, verifySignedValue } from "./utils/security.js";
 import { methodNotAllowed, notFound, readJson, sendHtml, sendJson } from "./utils/http.js";
 import { parseQRIS, validateQRIS } from "./qris/index.js";
 
@@ -27,6 +28,31 @@ function publicPayment(payment) {
 
 const adminCookieName = "gateway_admin";
 const androidDebugLogPath = path.resolve(process.cwd(), "data", "android-debug.log");
+
+function migrateMerchantIds() {
+  updateDb((db) => {
+    const idMap = new Map();
+
+    for (const store of db.stores) {
+      if (/^VER-[A-Z0-9]{5}$/.test(store.id)) continue;
+      const oldId = store.id;
+      store.id = createMerchantId(db.stores);
+      store.updated_at = new Date().toISOString();
+      idMap.set(oldId, store.id);
+    }
+
+    if (!idMap.size) return 0;
+
+    for (const apiKey of db.apiKeys) {
+      if (idMap.has(apiKey.store_id)) apiKey.store_id = idMap.get(apiKey.store_id);
+    }
+    for (const payment of db.payments) {
+      if (idMap.has(payment.store_id)) payment.store_id = idMap.get(payment.store_id);
+    }
+
+    return idMap.size;
+  });
+}
 
 function redact(value) {
   const text = String(value || "");
@@ -162,6 +188,7 @@ function renderLogin(error = "") {
 
 async function handleCreatePayment(req, res) {
   const auth = authenticateStore(req);
+  if (auth?.error) return sendJson(res, 401, { error: auth.error });
   if (!auth) return sendJson(res, 401, { error: "Invalid API key" });
 
   const body = await readJson(req);
@@ -171,6 +198,7 @@ async function handleCreatePayment(req, res) {
 
 function handleListPayments(req, res) {
   const auth = authenticateStore(req);
+  if (auth?.error) return sendJson(res, 401, { error: auth.error });
   if (!auth) return sendJson(res, 401, { error: "Invalid API key" });
 
   expireOldPayments();
@@ -181,6 +209,7 @@ function handleListPayments(req, res) {
 
 function handleGetPayment(req, res, paymentId) {
   const auth = authenticateStore(req);
+  if (auth?.error) return sendJson(res, 401, { error: auth.error });
   if (!auth) return sendJson(res, 401, { error: "Invalid API key" });
 
   expireOldPayments();
@@ -286,6 +315,29 @@ function handleAdminAndroidDebug(req, res, url) {
   });
 }
 
+function handleAdminWhatsAppStatus(req, res) {
+  if (!requireAdmin(req)) return sendJson(res, 401, { error: "Invalid admin session" });
+  return sendJson(res, 200, getWhatsAppStatus());
+}
+
+async function handleAdminWhatsAppConnect(req, res) {
+  if (!requireAdmin(req)) return sendJson(res, 401, { error: "Invalid admin session" });
+  try {
+    return sendJson(res, 200, await startWhatsApp());
+  } catch (error) {
+    return sendJson(res, 500, {
+      ...getWhatsAppStatus(),
+      status: "error",
+      error: error.message || "Failed to start WhatsApp",
+    });
+  }
+}
+
+async function handleAdminWhatsAppDisconnect(req, res) {
+  if (!requireAdmin(req)) return sendJson(res, 401, { error: "Invalid admin session" });
+  return sendJson(res, 200, await disconnectWhatsApp());
+}
+
 async function handleCreateStore(req, res, url) {
   if (!requireAdmin(req)) return sendJson(res, 401, { error: "Invalid admin session" });
 
@@ -301,7 +353,7 @@ async function handleCreateStore(req, res, url) {
 
   const created = updateDb((db) => {
     const store = {
-      id: randomId("store"),
+      id: createMerchantId(db.stores),
       name: String(body.name).trim(),
       webhook_secret: createWebhookSecret(),
       static_qris: String(body.static_qris || "").trim(),
@@ -475,6 +527,18 @@ async function router(req, res) {
       return handleAdminAndroidDebug(req, res, url);
     }
 
+    if (path === "/api/admin/wa/status" && req.method === "GET") {
+      return handleAdminWhatsAppStatus(req, res);
+    }
+
+    if (path === "/api/admin/wa/connect" && req.method === "POST") {
+      return handleAdminWhatsAppConnect(req, res);
+    }
+
+    if (path === "/api/admin/wa/disconnect" && req.method === "POST") {
+      return handleAdminWhatsAppDisconnect(req, res);
+    }
+
     if (path === "/api/admin/stores" && req.method === "POST") {
       return handleCreateStore(req, res, url);
     }
@@ -537,6 +601,8 @@ async function router(req, res) {
 }
 
 const server = http.createServer(router);
+
+migrateMerchantIds();
 
 server.listen(config.port, () => {
   console.log(`QRIS Gateway running at ${config.baseUrl}`);
