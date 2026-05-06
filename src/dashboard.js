@@ -1403,16 +1403,23 @@ export function renderDashboard(db, options = {}) {
     }
     .user-pill:hover { background: var(--surface-soft); border-color: color-mix(in oklab, var(--primary) 30%, var(--line)); }
     .user-avatar {
+      flex: 0 0 auto;
       width: 32px;
       height: 32px;
-      display: grid;
-      place-items: center;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       border-radius: 50%;
       background: var(--primary-grad);
       color: #fff;
       font-size: 13px;
       font-weight: 800;
+      line-height: 1;
+      font-family: "Inter", system-ui, sans-serif;
+      letter-spacing: 0;
+      text-indent: 0;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+      user-select: none;
     }
     .user-avatar.lg { width: 40px; height: 40px; font-size: 15px; border-radius: 50%; }
     .user-meta { display: grid; line-height: 1.25; text-align: left; min-width: 0; }
@@ -1428,8 +1435,8 @@ export function renderDashboard(db, options = {}) {
       background: var(--surface-soft);
     }
     .user-pop-head > div { display: grid; min-width: 0; line-height: 1.25; }
-    .user-pop-head strong { display: block; font-size: 13.5px; font-weight: 700; }
-    .user-pop-head span {
+    .user-pop-head > div strong { display: block; font-size: 13.5px; font-weight: 700; }
+    .user-pop-head > div span {
       display: block;
       margin-top: 2px;
       font-size: 11.5px;
@@ -1969,14 +1976,18 @@ export function renderDashboard(db, options = {}) {
       flex: 0 0 auto;
       width: 32px;
       height: 32px;
-      display: grid;
-      place-items: center;
-      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
       background: linear-gradient(135deg, color-mix(in oklab, var(--primary) 25%, var(--surface)), color-mix(in oklab, var(--accent) 22%, var(--surface)));
       color: var(--text);
       font-weight: 700;
       font-size: 12.5px;
+      line-height: 1;
+      font-family: "Inter", system-ui, sans-serif;
       box-shadow: inset 0 0 0 1px var(--line);
+      user-select: none;
     }
     .recent-panel tbody tr,
     [data-payment-row] {
