@@ -135,56 +135,245 @@ function renderLogin(error = "") {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login - QRIS Gateway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <style>
+    :root {
+      color-scheme: light;
+      --bg: #0a0e1a;
+      --surface: #131829;
+      --surface-soft: #1a2138;
+      --line: #2a304a;
+      --text: #e8ecf5;
+      --text-soft: #c2cadb;
+      --muted: #94a3b8;
+      --primary: #818cf8;
+      --primary-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+      --bad: #f87171;
+      --bad-bg: rgba(239,68,68,.12);
+      --bad-ring: rgba(248,113,113,.20);
+      --ring: 0 0 0 4px rgba(129,140,248,.20);
+      --ease: cubic-bezier(.4, 0, .2, 1);
+    }
     * { box-sizing: border-box; }
+    *::selection { background: rgba(99,102,241,.30); color: #fff; }
+    html, body { height: 100%; }
     body {
-      min-height: 100vh;
       margin: 0;
+      min-height: 100vh;
       display: grid;
       place-items: center;
-      background: #f6f7f9;
-      color: #18202f;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 24px;
+      background:
+        radial-gradient(900px 500px at 12% 8%, rgba(99,102,241,.30), transparent 60%),
+        radial-gradient(700px 400px at 88% 92%, rgba(14,165,233,.22), transparent 60%),
+        radial-gradient(500px 360px at 50% 50%, rgba(139,92,246,.10), transparent 70%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      width: 520px;
+      height: 520px;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: .35;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before { top: -160px; left: -160px; background: #6366f1; animation: drift1 14s ease-in-out infinite; }
+    body::after { bottom: -200px; right: -160px; background: #06b6d4; animation: drift2 16s ease-in-out infinite; }
+    @keyframes drift1 {
+      0%,100% { transform: translate(0,0); }
+      50% { transform: translate(40px,30px); }
+    }
+    @keyframes drift2 {
+      0%,100% { transform: translate(0,0); }
+      50% { transform: translate(-40px,-30px); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     main {
-      width: min(420px, calc(100vw - 32px));
-      background: #fff;
-      border: 1px solid #d9dee7;
-      border-radius: 8px;
-      padding: 24px;
+      position: relative;
+      z-index: 1;
+      width: min(440px, 100%);
+      padding: 36px 32px;
+      background: linear-gradient(180deg, rgba(19,24,41,.85), rgba(19,24,41,.92));
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 32px 80px -20px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.06);
+      animation: fadeUp .5s var(--ease);
     }
-    h1 { margin: 0 0 6px; font-size: 22px; }
-    p { margin: 0 0 20px; color: #657083; }
-    form { display: grid; gap: 12px; }
-    label { display: grid; gap: 6px; font-size: 13px; font-weight: 650; color: #657083; }
-    input, button {
-      min-height: 42px;
-      border-radius: 6px;
-      border: 1px solid #d9dee7;
-      font: inherit;
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
     }
-    input { padding: 8px 10px; }
-    button {
-      border-color: #0f766e;
-      background: #0f766e;
+    .brand-mark {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
       color: #fff;
-      font-weight: 750;
-      cursor: pointer;
+      font-weight: 800;
+      font-size: 18px;
+      background: var(--primary-grad);
+      box-shadow: 0 10px 22px -6px rgba(99,102,241,.55), inset 0 1px 0 rgba(255,255,255,.20);
     }
-    .error { min-height: 20px; color: #b42318; font-size: 13px; }
+    .brand-text strong {
+      display: block;
+      font-size: 14.5px;
+      letter-spacing: -0.005em;
+    }
+    .brand-text span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11.5px;
+      letter-spacing: 0.02em;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(180deg, #fff, #c7d0e2);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    p {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    form { display: grid; gap: 14px; }
+    label {
+      display: grid;
+      gap: 7px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-soft);
+    }
+    .input-wrap {
+      position: relative;
+    }
+    .input-wrap svg {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    input {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px 14px 12px 40px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(15,19,33,.6);
+      color: var(--text);
+      font: inherit;
+      outline: none;
+      transition: border-color .15s var(--ease), box-shadow .15s var(--ease), background .15s var(--ease);
+    }
+    input::placeholder { color: var(--muted); opacity: .7; }
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: var(--ring);
+      background: rgba(15,19,33,.85);
+    }
+    button {
+      position: relative;
+      width: 100%;
+      min-height: 46px;
+      padding: 0 16px;
+      margin-top: 4px;
+      border: none;
+      border-radius: 12px;
+      background: var(--primary-grad);
+      background-size: 180% 180%;
+      color: #fff;
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: 0.005em;
+      cursor: pointer;
+      box-shadow: 0 10px 28px -8px rgba(99,102,241,.55), inset 0 1px 0 rgba(255,255,255,.18);
+      transition: transform .15s var(--ease), box-shadow .2s var(--ease), background-position .4s var(--ease);
+    }
+    button:hover {
+      background-position: 100% 0;
+      box-shadow: 0 14px 32px -8px rgba(99,102,241,.70), inset 0 1px 0 rgba(255,255,255,.22);
+    }
+    button:active { transform: translateY(1px) scale(.99); }
+    .error {
+      min-height: 22px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: ${error ? "10px 14px" : "0"};
+      border-radius: 10px;
+      background: ${error ? "var(--bad-bg)" : "transparent"};
+      box-shadow: ${error ? "inset 0 0 0 1px var(--bad-ring)" : "none"};
+      color: var(--bad);
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+    .footer {
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255,255,255,.06);
+      color: var(--muted);
+      font-size: 11.5px;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>QRIS Gateway</h1>
-    <p>Masuk ke dashboard admin.</p>
+    <div class="brand-row">
+      <div class="brand-mark">Q</div>
+      <div class="brand-text">
+        <strong>QRIS Gateway</strong>
+        <span>Private payment ops</span>
+      </div>
+    </div>
+    <h1>Welcome back</h1>
+    <p>Masuk ke dashboard admin untuk monitor transaksi dan kelola integrasi.</p>
     <form method="post" action="/login">
       <label>Admin Token
-        <input name="token" type="password" autocomplete="current-password" autofocus required>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <input name="token" type="password" placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" autocomplete="current-password" autofocus required>
+        </div>
       </label>
-      <button type="submit">Login</button>
-      <div class="error">${error}</div>
+      <button type="submit">
+        <span>Sign in</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+      </button>
+      <div class="error">${error ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>${error}` : ""}</div>
     </form>
+    <div class="footer">QRIS Gateway &copy; ${new Date().getFullYear()}</div>
   </main>
 </body>
 </html>`;
