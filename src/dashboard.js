@@ -1231,57 +1231,7 @@ export function renderDashboard(db, options = {}) {
       color: #fff;
       box-shadow: 0 0 0 2px rgba(239,68,68,.15);
     }
-    .sidebar-promo {
-      position: relative;
-      margin: auto 6px 8px;
-      padding: 14px 14px 16px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(99,102,241,.18), rgba(14,165,233,.10));
-      border: 1px solid rgba(255,255,255,.08);
-      color: var(--nav-text);
-      overflow: hidden;
-    }
-    .sidebar-promo-glow {
-      position: absolute;
-      inset: -40% -20% auto auto;
-      width: 160px;
-      height: 160px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(99,102,241,.45), transparent 60%);
-      filter: blur(20px);
-      pointer-events: none;
-    }
-    .sidebar-promo-eyebrow {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 4px 9px;
-      border-radius: 99px;
-      background: rgba(34,197,94,.18);
-      color: #86efac;
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: .04em;
-    }
-    .sidebar-promo strong {
-      position: relative;
-      display: block;
-      margin-top: 12px;
-      font-size: 16px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: -0.01em;
-    }
-    .sidebar-promo span {
-      position: relative;
-      display: block;
-      margin-top: 4px;
-      color: var(--nav-text-soft);
-      font-size: 11.5px;
-      line-height: 1.5;
-    }
-    .sidebar-foot { display: grid; gap: 4px; }
+    .sidebar-foot { display: grid; gap: 4px; margin-top: auto; }
     .sidebar-foot-row {
       display: flex;
       align-items: center;
@@ -2136,15 +2086,6 @@ export function renderDashboard(db, options = {}) {
             Konfigurasi
           </a>
         </nav>
-        <div class="sidebar-promo">
-          <div class="sidebar-promo-glow"></div>
-          <div class="sidebar-promo-eyebrow">
-            <span class="hero-pulse"></span>
-            System healthy
-          </div>
-          <strong>${successRate}% success rate</strong>
-          <span>${paid.length} dari ${db.payments.length} payment dikonfirmasi.</span>
-        </div>
       </div>
       <div class="sidebar-foot">
         <div class="sidebar-foot-row">
