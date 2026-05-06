@@ -1964,31 +1964,6 @@ export function renderDashboard(db, options = {}) {
     }
     .panel-head h3 { margin: 4px 0 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
 
-    /* Customer avatar in payment cell */
-    .primary-cell {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-width: 0;
-    }
-    .primary-cell > div { display: grid; gap: 2px; min-width: 0; }
-    .customer-avatar {
-      flex: 0 0 auto;
-      width: 32px;
-      height: 32px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      background: linear-gradient(135deg, color-mix(in oklab, var(--primary) 25%, var(--surface)), color-mix(in oklab, var(--accent) 22%, var(--surface)));
-      color: var(--text);
-      font-weight: 700;
-      font-size: 12.5px;
-      line-height: 1;
-      font-family: "Inter", system-ui, sans-serif;
-      box-shadow: inset 0 0 0 1px var(--line);
-      user-select: none;
-    }
     .recent-panel tbody tr,
     [data-payment-row] {
       animation: fadeUp .35s var(--ease) both;
@@ -2048,7 +2023,6 @@ export function renderDashboard(db, options = {}) {
         <div class="brand-mark">Q</div>
         <div>
           <strong>QRIS Gateway</strong>
-          <span>Private payment ops</span>
         </div>
       </div>
       <div class="sidebar-scroll">
@@ -2093,7 +2067,6 @@ export function renderDashboard(db, options = {}) {
           <span class="foot-tag">v1.0</span>
           <span>QRIS Gateway</span>
         </div>
-        <div class="sidebar-foot-row muted">Private payment ops</div>
       </div>
     </aside>
 
@@ -2372,11 +2345,8 @@ export function renderDashboard(db, options = {}) {
                       <td><span class="pill ${statusClass(payment.status)}">${escapeHtml(payment.status)}</span></td>
                       <td>
                         <div class="primary-cell">
-                          <span class="customer-avatar">${escapeHtml((payment.customer_name || "?").trim().charAt(0).toUpperCase())}</span>
-                          <div>
-                            <strong>${escapeHtml(payment.external_id)}</strong>
-                            <span><code>${escapeHtml(payment.id)}</code></span>
-                          </div>
+                          <strong>${escapeHtml(payment.external_id)}</strong>
+                          <span><code>${escapeHtml(payment.id)}</code></span>
                         </div>
                       </td>
                       <td><strong>${money(payment.amount)}</strong></td>
@@ -2414,11 +2384,8 @@ export function renderDashboard(db, options = {}) {
                         <td><span class="pill ${statusClass(payment.status)}">${escapeHtml(payment.status)}</span></td>
                         <td>
                           <div class="primary-cell">
-                            <span class="customer-avatar">${escapeHtml((payment.customer_name || "?").trim().charAt(0).toUpperCase())}</span>
-                            <div>
-                              <strong>${escapeHtml(payment.external_id)}</strong>
-                              <span><code>${escapeHtml(payment.id)}</code></span>
-                            </div>
+                            <strong>${escapeHtml(payment.external_id)}</strong>
+                            <span><code>${escapeHtml(payment.id)}</code></span>
                           </div>
                         </td>
                         <td><strong>${money(payment.amount)}</strong></td>
