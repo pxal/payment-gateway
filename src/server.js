@@ -148,16 +148,16 @@ function renderLogin(error = "") {
       --text: #e8ecf5;
       --text-soft: #c2cadb;
       --muted: #94a3b8;
-      --primary: #818cf8;
-      --primary-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
+      --primary: #60a5fa;
+      --primary-grad: linear-gradient(135deg, #2563eb 0%, #0ea5e9 50%, #06b6d4 100%);
       --bad: #f87171;
       --bad-bg: rgba(239,68,68,.12);
       --bad-ring: rgba(248,113,113,.20);
-      --ring: 0 0 0 4px rgba(129,140,248,.20);
+      --ring: 0 0 0 4px rgba(96,165,250,.20);
       --ease: cubic-bezier(.4, 0, .2, 1);
     }
     * { box-sizing: border-box; }
-    *::selection { background: rgba(99,102,241,.30); color: #fff; }
+    *::selection { background: rgba(37,99,235,.30); color: #fff; }
     html, body { height: 100%; }
     body {
       margin: 0;
@@ -166,9 +166,9 @@ function renderLogin(error = "") {
       place-items: center;
       padding: 24px;
       background:
-        radial-gradient(900px 500px at 12% 8%, rgba(99,102,241,.30), transparent 60%),
+        radial-gradient(900px 500px at 12% 8%, rgba(37,99,235,.30), transparent 60%),
         radial-gradient(700px 400px at 88% 92%, rgba(14,165,233,.22), transparent 60%),
-        radial-gradient(500px 360px at 50% 50%, rgba(139,92,246,.10), transparent 70%),
+        radial-gradient(500px 360px at 50% 50%, rgba(14,165,233,.10), transparent 70%),
         var(--bg);
       color: var(--text);
       font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -186,7 +186,7 @@ function renderLogin(error = "") {
       pointer-events: none;
       z-index: 0;
     }
-    body::before { top: -160px; left: -160px; background: #6366f1; animation: drift1 14s ease-in-out infinite; }
+    body::before { top: -160px; left: -160px; background: #2563eb; animation: drift1 14s ease-in-out infinite; }
     body::after { bottom: -200px; right: -160px; background: #06b6d4; animation: drift2 16s ease-in-out infinite; }
     @keyframes drift1 {
       0%,100% { transform: translate(0,0); }
@@ -230,7 +230,7 @@ function renderLogin(error = "") {
       font-weight: 800;
       font-size: 18px;
       background: var(--primary-grad);
-      box-shadow: 0 10px 22px -6px rgba(99,102,241,.55), inset 0 1px 0 rgba(255,255,255,.20);
+      box-shadow: 0 10px 22px -6px rgba(37,99,235,.55), inset 0 1px 0 rgba(255,255,255,.20);
     }
     .brand-text strong {
       display: block;
@@ -314,12 +314,12 @@ function renderLogin(error = "") {
       font-size: 14px;
       letter-spacing: 0.005em;
       cursor: pointer;
-      box-shadow: 0 10px 28px -8px rgba(99,102,241,.55), inset 0 1px 0 rgba(255,255,255,.18);
+      box-shadow: 0 10px 28px -8px rgba(37,99,235,.55), inset 0 1px 0 rgba(255,255,255,.18);
       transition: transform .15s var(--ease), box-shadow .2s var(--ease), background-position .4s var(--ease);
     }
     button:hover {
       background-position: 100% 0;
-      box-shadow: 0 14px 32px -8px rgba(99,102,241,.70), inset 0 1px 0 rgba(255,255,255,.22);
+      box-shadow: 0 14px 32px -8px rgba(37,99,235,.70), inset 0 1px 0 rgba(255,255,255,.22);
     }
     button:active { transform: translateY(1px) scale(.99); }
     .error {
