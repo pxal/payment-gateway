@@ -222,3 +222,45 @@ Payload:
   "paid_at": "2026-05-04T05:10:00.000Z"
 }
 ```
+
+### Retry Callback
+
+Jika store tidak merespon `2xx` (timeout, 5xx, atau error jaringan), gateway otomatis
+mengulang callback dengan exponential backoff:
+
+```text
+30 detik -> 1 menit -> 5 menit -> 15 menit -> 1 jam -> 6 jam
+```
+
+Total maksimum 6 attempt. Setelah attempt ke-6 masih gagal, status callback berubah jadi
+`exhausted` dan gateway berhenti mencoba otomatis.
+
+Status callback yang mungkin muncul di response API dan dashboard:
+
+```text
+pending    = belum pernah di-attempt (payment baru paid)
+sent       = berhasil diterima store (response 2xx)
+failed     = attempt terakhir gagal, masih akan di-retry otomatis
+exhausted  = semua attempt habis, butuh retry manual
+skipped    = payment tidak punya callback_url
+expired    = payment expired sebelum dibayar
+```
+
+Field tambahan di response `GET /api/payments/:id`:
+
+```json
+{
+  "callback_status": "failed",
+  "callback_attempts": 2,
+  "callback_next_retry_at": "2026-05-04T05:15:00.000Z",
+  "callback_last_attempt_at": "2026-05-04T05:10:00.000Z"
+}
+```
+
+Retry manual dari dashboard tersedia lewat tombol **Retry** di kolom Callback, atau
+lewat endpoint admin:
+
+```http
+POST /api/admin/payments/:payment_id/retry-callback
+X-Admin-Token: change-this-admin-token
+```

@@ -76,6 +76,9 @@ export function createPayment(store, input) {
     matched_notification_id: null,
     callback_status: "pending",
     callback_last_error: null,
+    callback_attempts: 0,
+    callback_next_retry_at: null,
+    callback_last_attempt_at: null,
     created_at: now.toISOString(),
     updated_at: now.toISOString(),
   };
