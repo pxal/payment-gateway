@@ -1343,6 +1343,7 @@ export function renderDashboard(db, options = {}) {
       z-index: 20;
       animation: popIn .18s var(--ease);
     }
+    .user-pop { padding: 6px; min-width: 260px; }
     @keyframes popIn {
       from { opacity: 0; transform: translateY(-4px) scale(.98); }
       to { opacity: 1; transform: translateY(0) scale(1); }
@@ -1406,31 +1407,42 @@ export function renderDashboard(db, options = {}) {
       height: 32px;
       display: grid;
       place-items: center;
-      border-radius: 9px;
+      border-radius: 50%;
       background: var(--primary-grad);
       color: #fff;
       font-size: 13px;
       font-weight: 800;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
     }
-    .user-avatar.lg { width: 44px; height: 44px; font-size: 17px; border-radius: 12px; }
-    .user-meta { display: grid; line-height: 1.2; text-align: left; }
+    .user-avatar.lg { width: 40px; height: 40px; font-size: 15px; border-radius: 50%; }
+    .user-meta { display: grid; line-height: 1.25; text-align: left; min-width: 0; }
     .user-meta strong { font-size: 12.5px; font-weight: 700; }
     .user-meta span { font-size: 11px; color: var(--muted); }
     .user-pop-head {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 12px 14px;
-      border-bottom: 1px solid var(--line-soft);
+      padding: 12px 12px 12px;
       margin-bottom: 6px;
+      border-radius: 10px;
+      background: var(--surface-soft);
     }
-    .user-pop-head strong { display: block; font-size: 13.5px; }
-    .user-pop-head span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--muted); }
+    .user-pop-head > div { display: grid; min-width: 0; line-height: 1.25; }
+    .user-pop-head strong { display: block; font-size: 13.5px; font-weight: 700; }
+    .user-pop-head span {
+      display: block;
+      margin-top: 2px;
+      font-size: 11.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .button-ghost {
       width: 100%;
       display: inline-flex;
       align-items: center;
+      justify-content: flex-start;
       gap: 10px;
       padding: 10px 12px;
       border: none;
@@ -1441,10 +1453,10 @@ export function renderDashboard(db, options = {}) {
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: background .15s var(--ease);
+      transition: background .15s var(--ease), color .15s var(--ease);
     }
-    .button-ghost:hover { background: var(--surface-soft); }
-    .button-ghost svg { width: 16px; height: 16px; }
+    .button-ghost:hover { background: color-mix(in oklab, var(--bad) 10%, transparent); color: var(--bad); }
+    .button-ghost svg { width: 16px; height: 16px; flex: 0 0 auto; }
 
     /* Hero card */
     .hero-card {
