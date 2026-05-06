@@ -172,8 +172,8 @@ function donutSvg(percent, opts = {}) {
   return `<svg class="donut" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
       <linearGradient id="${id}-grad" x1="0" x2="1" y1="0" y2="1">
-        <stop offset="0%" stop-color="#6366f1"/>
-        <stop offset="50%" stop-color="#8b5cf6"/>
+        <stop offset="0%" stop-color="#2563eb"/>
+        <stop offset="50%" stop-color="#0ea5e9"/>
         <stop offset="100%" stop-color="#06b6d4"/>
       </linearGradient>
     </defs>
@@ -329,7 +329,7 @@ export function renderDashboard(db, options = {}) {
     :root {
       color-scheme: light;
       --bg: #f5f7fb;
-      --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,.10), transparent 60%),
+      --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(37,99,235,.10), transparent 60%),
                  radial-gradient(900px 500px at 110% 10%, rgba(14,165,233,.08), transparent 60%),
                  #f5f7fb;
       --surface: #ffffff;
@@ -341,17 +341,17 @@ export function renderDashboard(db, options = {}) {
       --text-soft: #475569;
       --muted: #64748b;
       --nav-bg: linear-gradient(180deg, #0f172a 0%, #111634 100%);
-      --nav-pattern: radial-gradient(800px 400px at 0% 0%, rgba(99,102,241,.18), transparent 55%),
+      --nav-pattern: radial-gradient(800px 400px at 0% 0%, rgba(37,99,235,.18), transparent 55%),
                      radial-gradient(600px 380px at 100% 100%, rgba(14,165,233,.12), transparent 55%);
       --nav-border: rgba(255,255,255,.06);
       --nav-text: #c7d0e2;
       --nav-text-soft: #8a93ab;
-      --nav-active-bg: linear-gradient(135deg, rgba(99,102,241,.30), rgba(14,165,233,.18));
+      --nav-active-bg: linear-gradient(135deg, rgba(37,99,235,.30), rgba(14,165,233,.18));
       --nav-active-border: rgba(255,255,255,.12);
-      --primary: #6366f1;
-      --primary-strong: #4f46e5;
-      --primary-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #06b6d4 100%);
-      --primary-glow: 0 6px 20px -6px rgba(99,102,241,.55);
+      --primary: #2563eb;
+      --primary-strong: #1d4ed8;
+      --primary-grad: linear-gradient(135deg, #2563eb 0%, #0ea5e9 50%, #06b6d4 100%);
+      --primary-glow: 0 6px 20px -6px rgba(37,99,235,.55);
       --accent: #06b6d4;
       --good: #059669;
       --good-bg: #ecfdf5;
@@ -365,25 +365,25 @@ export function renderDashboard(db, options = {}) {
       --info: #1d4ed8;
       --info-bg: #eff6ff;
       --info-ring: rgba(59,130,246,.18);
-      --code-bg: #eef2ff;
-      --code-text: #3730a3;
+      --code-bg: #eff6ff;
+      --code-text: #1e40af;
       --pre-bg: linear-gradient(160deg, #0b1024 0%, #0f172a 100%);
       --pre-text: #e2e8f0;
       --shadow-sm: 0 1px 2px rgba(15,23,42,.04), 0 1px 1px rgba(15,23,42,.02);
       --shadow: 0 12px 28px -12px rgba(15,23,42,.12), 0 4px 10px -4px rgba(15,23,42,.06);
       --shadow-lg: 0 24px 60px -20px rgba(15,23,42,.18), 0 8px 18px -10px rgba(15,23,42,.08);
-      --shadow-glow: 0 0 0 1px rgba(99,102,241,.18), 0 12px 30px -10px rgba(99,102,241,.30);
+      --shadow-glow: 0 0 0 1px rgba(37,99,235,.18), 0 12px 30px -10px rgba(37,99,235,.30);
       --radius-sm: 8px;
       --radius: 12px;
       --radius-lg: 16px;
       --radius-xl: 20px;
-      --ring: 0 0 0 4px rgba(99,102,241,.15);
+      --ring: 0 0 0 4px rgba(37,99,235,.15);
       --ease: cubic-bezier(.4, 0, .2, 1);
     }
     :root[data-theme="dark"] {
       color-scheme: dark;
       --bg: #0a0e1a;
-      --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,.18), transparent 60%),
+      --bg-grad: radial-gradient(1200px 600px at 10% -10%, rgba(37,99,235,.18), transparent 60%),
                  radial-gradient(900px 500px at 110% 10%, rgba(14,165,233,.10), transparent 60%),
                  #0a0e1a;
       --surface: #131829;
@@ -398,11 +398,11 @@ export function renderDashboard(db, options = {}) {
       --nav-border: rgba(255,255,255,.04);
       --nav-text: #c5cee3;
       --nav-text-soft: #7c869f;
-      --nav-active-bg: linear-gradient(135deg, rgba(99,102,241,.35), rgba(14,165,233,.22));
+      --nav-active-bg: linear-gradient(135deg, rgba(37,99,235,.35), rgba(14,165,233,.22));
       --nav-active-border: rgba(255,255,255,.10);
-      --primary: #818cf8;
-      --primary-strong: #6366f1;
-      --primary-glow: 0 6px 22px -6px rgba(129,140,248,.55);
+      --primary: #60a5fa;
+      --primary-strong: #2563eb;
+      --primary-glow: 0 6px 22px -6px rgba(96,165,250,.55);
       --accent: #22d3ee;
       --good: #34d399;
       --good-bg: rgba(16,185,129,.12);
@@ -416,18 +416,18 @@ export function renderDashboard(db, options = {}) {
       --info: #60a5fa;
       --info-bg: rgba(59,130,246,.12);
       --info-ring: rgba(96,165,250,.20);
-      --code-bg: rgba(99,102,241,.12);
-      --code-text: #c7d2fe;
+      --code-bg: rgba(37,99,235,.12);
+      --code-text: #bfdbfe;
       --pre-bg: linear-gradient(160deg, #050816 0%, #0a0e1f 100%);
       --pre-text: #e2e8f0;
       --shadow-sm: 0 1px 2px rgba(0,0,0,.30), 0 1px 1px rgba(0,0,0,.20);
       --shadow: 0 12px 28px -12px rgba(0,0,0,.50), 0 4px 10px -4px rgba(0,0,0,.30);
       --shadow-lg: 0 24px 60px -20px rgba(0,0,0,.60), 0 8px 18px -10px rgba(0,0,0,.40);
-      --shadow-glow: 0 0 0 1px rgba(129,140,248,.22), 0 12px 30px -10px rgba(129,140,248,.40);
-      --ring: 0 0 0 4px rgba(129,140,248,.20);
+      --shadow-glow: 0 0 0 1px rgba(96,165,250,.22), 0 12px 30px -10px rgba(96,165,250,.40);
+      --ring: 0 0 0 4px rgba(96,165,250,.20);
     }
     * { box-sizing: border-box; }
-    *::selection { background: rgba(99,102,241,.25); color: var(--text); }
+    *::selection { background: rgba(37,99,235,.25); color: var(--text); }
     html { scroll-behavior: smooth; }
     body {
       margin: 0;
@@ -478,7 +478,7 @@ export function renderDashboard(db, options = {}) {
       font-weight: 800;
       font-size: 17px;
       background: var(--primary-grad);
-      box-shadow: 0 8px 18px -6px rgba(99,102,241,.5), inset 0 1px 0 rgba(255,255,255,.20);
+      box-shadow: 0 8px 18px -6px rgba(37,99,235,.5), inset 0 1px 0 rgba(255,255,255,.20);
     }
     .brand-mark::after {
       content: "";
@@ -703,7 +703,7 @@ export function renderDashboard(db, options = {}) {
       inset: 0;
       border-radius: inherit;
       padding: 1px;
-      background: linear-gradient(135deg, rgba(99,102,241,.0), rgba(99,102,241,.0));
+      background: linear-gradient(135deg, rgba(37,99,235,.0), rgba(37,99,235,.0));
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
               mask-composite: exclude;
@@ -718,7 +718,7 @@ export function renderDashboard(db, options = {}) {
     }
     .metric:hover::before {
       opacity: 1;
-      background: linear-gradient(135deg, rgba(99,102,241,.45), rgba(14,165,233,.30) 50%, rgba(99,102,241,0) 100%);
+      background: linear-gradient(135deg, rgba(37,99,235,.45), rgba(14,165,233,.30) 50%, rgba(37,99,235,0) 100%);
     }
     .metric-head {
       display: flex;
@@ -1072,7 +1072,7 @@ export function renderDashboard(db, options = {}) {
     }
     button:hover {
       background-position: 100% 0;
-      box-shadow: 0 10px 26px -8px rgba(99,102,241,.65);
+      box-shadow: 0 10px 26px -8px rgba(37,99,235,.65);
     }
     button:active { transform: translateY(1px) scale(.99); }
     button:focus-visible { outline: none; box-shadow: var(--primary-glow), var(--ring); }
@@ -1456,7 +1456,7 @@ export function renderDashboard(db, options = {}) {
       margin-bottom: 22px;
       border-radius: var(--radius-xl);
       background:
-        linear-gradient(135deg, rgba(99,102,241,.08) 0%, rgba(14,165,233,.04) 100%),
+        linear-gradient(135deg, rgba(37,99,235,.08) 0%, rgba(14,165,233,.04) 100%),
         var(--surface);
       border: 1px solid var(--line);
       overflow: hidden;
@@ -1470,7 +1470,7 @@ export function renderDashboard(db, options = {}) {
       inset: 0;
       pointer-events: none;
       background:
-        radial-gradient(600px 320px at 0% 0%, rgba(99,102,241,.18), transparent 60%),
+        radial-gradient(600px 320px at 0% 0%, rgba(37,99,235,.18), transparent 60%),
         radial-gradient(500px 320px at 100% 100%, rgba(14,165,233,.12), transparent 60%);
       z-index: -1;
     }
@@ -1487,7 +1487,7 @@ export function renderDashboard(db, options = {}) {
       height: 280px;
       top: -120px;
       right: -60px;
-      background: radial-gradient(circle, rgba(139,92,246,.55), transparent 70%);
+      background: radial-gradient(circle, rgba(14,165,233,.55), transparent 70%);
       animation: drift 14s ease-in-out infinite;
     }
     .hero-blob-b {
@@ -1604,7 +1604,7 @@ export function renderDashboard(db, options = {}) {
       box-shadow: var(--primary-glow);
       transition: background-position .35s var(--ease), transform .15s var(--ease), box-shadow .25s var(--ease);
     }
-    .hero-cta:hover { background-position: 100% 0; transform: translateY(-1px); box-shadow: 0 12px 28px -8px rgba(99,102,241,.65); }
+    .hero-cta:hover { background-position: 100% 0; transform: translateY(-1px); box-shadow: 0 12px 28px -8px rgba(37,99,235,.65); }
     .hero-cta:active { transform: translateY(0); }
     .hero-link {
       color: var(--primary);
