@@ -85,6 +85,21 @@ pending  = payment masih menunggu pembayaran
 paid     = payment sudah dibayar
 expired  = payment expired sebelum dibayar
 
+Status callback (callback_status):
+
+pending    = belum pernah di-attempt
+sent       = berhasil diterima partner
+failed     = attempt terakhir gagal, akan di-retry otomatis
+exhausted  = semua attempt habis (max 6), butuh retry manual
+skipped    = payment tidak punya callback_url
+expired    = payment expired sebelum dibayar
+
+Field tambahan response:
+
+callback_attempts          = jumlah attempt yang sudah dijalankan
+callback_next_retry_at     = waktu retry berikutnya (ISO 8601), null jika sudah final
+callback_last_attempt_at   = waktu attempt terakhir (ISO 8601)
+
 
 CALLBACK DARI GATEWAY KE PARTNER
 

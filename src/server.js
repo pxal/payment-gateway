@@ -7,6 +7,7 @@ import { renderDashboard } from "./dashboard.js";
 import { authenticateStore } from "./services/auth.js";
 import { createPayment, expireOldPayments, getPayment, listPayments } from "./services/payments.js";
 import { recordAndroidNotification } from "./services/notifications.js";
+import { retryPaymentCallback, startCallbackRetryPoller } from "./services/callbacks.js";
 import { disconnectWhatsApp, getWhatsAppStatus, startWhatsApp } from "./services/whatsapp.js";
 import { createApiKey, createMerchantId, createWebhookSecret, randomId, signValue, timingSafeEqualString, verifySignedValue } from "./utils/security.js";
 import { methodNotAllowed, notFound, readJson, sendHtml, sendJson } from "./utils/http.js";
@@ -23,6 +24,9 @@ function publicPayment(payment) {
     expired_at: payment.expires_at,
     paid_at: payment.paid_at,
     callback_status: payment.callback_status,
+    callback_attempts: payment.callback_attempts || 0,
+    callback_next_retry_at: payment.callback_next_retry_at || null,
+    callback_last_attempt_at: payment.callback_last_attempt_at || null,
   };
 }
 
@@ -241,6 +245,21 @@ async function handleAdminCreatePayment(req, res, url) {
 
   const payment = createPayment(store, body);
   return sendJson(res, 201, publicPayment(payment));
+}
+
+async function handleAdminRetryCallback(req, res, paymentId) {
+  if (!requireAdmin(req)) return sendJson(res, 401, { error: "Invalid admin session" });
+
+  const result = await retryPaymentCallback(paymentId);
+  if (!result.ok) {
+    return sendJson(res, result.statusCode || 422, { error: result.error });
+  }
+
+  const payment = getPayment(paymentId);
+  return sendJson(res, 200, {
+    log: result.log,
+    payment: payment ? publicPayment(payment) : null,
+  });
 }
 
 async function handleAndroidNotification(req, res) {
@@ -555,6 +574,11 @@ async function router(req, res) {
       return handleAdminCreatePayment(req, res, url);
     }
 
+    const adminRetryCallbackMatch = path.match(/^\/api\/admin\/payments\/([^/]+)\/retry-callback$/);
+    if (adminRetryCallbackMatch && req.method === "POST") {
+      return handleAdminRetryCallback(req, res, adminRetryCallbackMatch[1]);
+    }
+
     const storeQrisMatch = path.match(/^\/api\/admin\/stores\/([^/]+)\/qris$/);
     if (storeQrisMatch && req.method === "PUT") {
       return handleUpdateStoreQris(req, res, url, storeQrisMatch[1]);
@@ -603,6 +627,7 @@ async function router(req, res) {
 const server = http.createServer(router);
 
 migrateMerchantIds();
+startCallbackRetryPoller();
 
 server.listen(config.port, () => {
   console.log(`QRIS Gateway running at ${config.baseUrl}`);

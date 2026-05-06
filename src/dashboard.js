@@ -1,3 +1,5 @@
+import { MAX_CALLBACK_ATTEMPTS } from "./services/callbacks.js";
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -32,6 +34,8 @@ function statusClass(status) {
     pending: "warn",
     expired: "muted",
     failed: "bad",
+    exhausted: "bad",
+    skipped: "muted",
     unmatched: "muted",
   }[status] || "muted";
 }
@@ -41,9 +45,39 @@ function money(value) {
 }
 
 function callbackLabel(payment) {
-  if (payment.status === "paid") return payment.callback_status || "pending";
+  if (payment.status === "paid") {
+    const status = payment.callback_status || "pending";
+    if ((status === "failed" || status === "exhausted") && payment.callback_attempts) {
+      return `${status} (${payment.callback_attempts}/${MAX_CALLBACK_ATTEMPTS})`;
+    }
+    return status;
+  }
   if (payment.status === "expired") return "expired";
   return "-";
+}
+
+function callbackTooltip(payment) {
+  if (payment.status !== "paid") return "";
+  const parts = [];
+  if (payment.callback_attempts) parts.push(`Attempts: ${payment.callback_attempts}/${MAX_CALLBACK_ATTEMPTS}`);
+  if (payment.callback_last_attempt_at) parts.push(`Last: ${formatDate(payment.callback_last_attempt_at)}`);
+  if (payment.callback_next_retry_at) parts.push(`Next retry: ${formatDate(payment.callback_next_retry_at)}`);
+  if (payment.callback_last_error) parts.push(`Error: ${payment.callback_last_error}`);
+  return parts.join(" \u2022 ");
+}
+
+function callbackCell(payment) {
+  const label = callbackLabel(payment);
+  const tooltip = callbackTooltip(payment);
+  const titleAttr = tooltip ? ` title="${escapeHtml(tooltip)}"` : "";
+  const pillClass = payment.status === "paid" ? (payment.callback_status || "pending") : label;
+  const pill = `<span class="pill ${statusClass(pillClass)}"${titleAttr}>${escapeHtml(label)}</span>`;
+  const status = payment.callback_status;
+  const canRetry = payment.status === "paid" && payment.callback_url && (status === "failed" || status === "exhausted");
+  const retryButton = canRetry
+    ? `<button type="button" class="callback-retry" data-retry-callback="${escapeHtml(payment.id)}">Retry</button>`
+    : "";
+  return `<div class="callback-cell">${pill}${retryButton}</div>`;
 }
 
 export function renderDashboard(db, options = {}) {
@@ -387,6 +421,25 @@ export function renderDashboard(db, options = {}) {
     .warn { color: var(--warn); background: #fff5d6; }
     .bad { color: var(--bad); background: #ffe8e4; }
     .muted { color: var(--muted); background: #edf1f6; }
+    .callback-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .callback-retry {
+      min-height: 24px;
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .callback-retry:hover { background: #fff; }
+    .callback-retry:disabled { opacity: 0.6; cursor: not-allowed; }
     .empty {
       padding: 26px;
       color: var(--muted);
@@ -756,7 +809,7 @@ export function renderDashboard(db, options = {}) {
                       <td>${escapeHtml(payment.customer_name || "-")}</td>
                       <td>${formatDate(payment.created_at)}</td>
                       <td>${formatDate(payment.expires_at)}</td>
-                      <td><span class="pill ${statusClass(callbackLabel(payment))}">${escapeHtml(callbackLabel(payment))}</span></td>
+                      <td>${callbackCell(payment)}</td>
                     </tr>
                   `).join("")}
                 </tbody>
@@ -795,7 +848,7 @@ export function renderDashboard(db, options = {}) {
                         <td>${escapeHtml(payment.customer_name || "-")}</td>
                         <td>${formatDate(payment.created_at)}</td>
                         <td>${formatDate(payment.expires_at)}</td>
-                        <td><span class="pill ${statusClass(callbackLabel(payment))}">${escapeHtml(callbackLabel(payment))}</span></td>
+                        <td>${callbackCell(payment)}</td>
                       </tr>
                     `).join("")}
                   </tbody>
@@ -1397,6 +1450,32 @@ if (signature !== expected) {
     });
 
     document.getElementById("store-reset")?.addEventListener("click", () => fillStoreForm(null));
+
+    document.querySelectorAll("[data-retry-callback]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const paymentId = button.dataset.retryCallback;
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = "Retrying...";
+        try {
+          const response = await fetch("/api/admin/payments/" + encodeURIComponent(paymentId) + "/retry-callback", {
+            method: "POST",
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            alert(data.error || "Failed to retry callback");
+            button.disabled = false;
+            button.textContent = original;
+            return;
+          }
+          window.location.reload();
+        } catch (error) {
+          alert("Failed to retry callback: " + error.message);
+          button.disabled = false;
+          button.textContent = original;
+        }
+      });
+    });
 
     function loadJsQr() {
       if (window.jsQR) return Promise.resolve(window.jsQR);
